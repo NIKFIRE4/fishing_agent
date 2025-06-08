@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "bgi6qkin8t4=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Red1an\\Documents\\sharp\\FishingAgent\\fishing_agent\\backend\\TgParse\\TgParse.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Red1an\\.nuget\\packages\\htmlagilitypack\\1.12.1\\htmlagilitypack.1.12.1.nupkg.sha512"
+  ],
+  "logs": []
+}
