@@ -54,6 +54,10 @@
             "HtmlAgilityPack": {
               "target": "Package",
               "version": "[1.12.1, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[9.0.4, )"
             }
           },
           "imports": [

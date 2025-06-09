@@ -1,12 +1,37 @@
 ﻿using HtmlAgilityPack;
+using Microsoft.EntityFrameworkCore;
 using System;
+using System.Runtime.Intrinsics.X86;
+using System.Text.RegularExpressions;
 using System.Xml;
 
-namespace FishingAgent
+namespace TgParse
 {
+
+    public class LenOblast
+    {
+        public int Id { get; set; }
+        public string? message { get; set; }
+        public int messageId { get; set; }
+        public string? channelUrl { get; set; }
+        public string? imageUrl { get; set; }
+    }
+    public class ApplicationContext: DbContext
+    {
+        public DbSet<LenOblast> LenOblasts { get; set; }
+        public ApplicationContext() 
+        {
+            Database.EnsureCreated();
+        }
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseNpgsql("Host=localhost; Port=5432; Database=FishingMessages; Username=postgres; Password=567438");
+        }
+    }
+
     class Program
     {
-        public static async Task<HtmlNode?> TakeText(string url)
+        public static async Task<HtmlDocument?> TakeHtml(string url)
         {
             using var httpClient = new HttpClient();
             try
@@ -16,10 +41,7 @@ namespace FishingAgent
 
                 var htmlDoc = new HtmlDocument();
                 htmlDoc.LoadHtml(htmlContent);
-
-
-                var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
-                return metaNode;
+                return htmlDoc;
             }
             catch (HttpRequestException ex)
             {
@@ -28,12 +50,26 @@ namespace FishingAgent
             }
         }
 
+        public static HtmlNode? TakeText(HtmlDocument htmlDoc)
+        {
+            var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
+            return metaNode;
+        }
+
+        public static HtmlNode? TakeImage(HtmlDocument htmlDoc)
+        {
+            var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
+            return metaNode;
+        }
+
         static async Task Main(string[] args)
         {
+
             int maxId = 0;
             string channelName = "rybalka_spb_lenoblasti";
             string aboutUrl = $"https://t.me/{channelName}";
-            var abouta = await TakeText(aboutUrl);
+            var aboutHtml = await TakeHtml(aboutUrl);
+            var abouta = TakeText(aboutHtml);
             using var httpClnt = new HttpClient();
             try
             {
@@ -72,16 +108,31 @@ namespace FishingAgent
             }
 
 
-            for (int messageId = maxId; messageId > 1; messageId--)
+            for (int messageId = 1; messageId < maxId; messageId++)
             {
 
                 string url = $"https://t.me/{channelName}/{messageId}";
-                var metaNode = await TakeText(url);
+                var metaNode = await TakeHtml(url);
+                var metaText = TakeText(metaNode);
+                var metaImage = TakeImage(metaNode);
 
-                if (metaNode != null && metaNode.Attributes["content"] != null && metaNode.Attributes["content"].Value != abouta.Attributes["content"].Value
-                    && metaNode.Attributes["content"].Value != "" && !(metaNode.Attributes["content"].Value.Contains("#реклама")))
+                if (metaText != null && metaText.Attributes["content"] != null && metaText.Attributes["content"].Value != abouta.Attributes["content"].Value
+                    && metaText.Attributes["content"].Value != "" && !metaText.Attributes["content"].Value.Contains("#реклама") && metaText.Attributes["content"].Value.Contains("#"))
                 {
-                    string messageText = metaNode.Attributes["content"].Value.Trim();
+
+                    string messageText = metaText.Attributes["content"].Value.Trim();
+                    string imageText = metaImage.Attributes["content"].Value.Trim();
+
+                    messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
+                    messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+
+                    using (ApplicationContext db = new())
+                    {
+                        LenOblast fishMessage = new() { message = messageText, messageId = messageId, channelUrl = channelName, imageUrl = imageText };
+                        db.LenOblasts.AddRange(fishMessage);
+                        db.SaveChanges();
+                    }
+
                     Console.WriteLine($"ID: {messageId};  Текст сообщения:");
                     Console.WriteLine(messageText);
                 }
