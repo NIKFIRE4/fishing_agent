@@ -1,9 +1,10 @@
-from ultralytics import YOLO
 import base64
 import numpy as np
 from PIL import Image
 from io import BytesIO
-model = YOLO(r"cv_for_person_detect/yolov5n.pt")
+from ultralytics import YOLO
+
+model = YOLO("cv_for_person_detect/yolov5n.pt")
 
 def detect_person(image_base64: str, conf: float = 0.58) -> bool:
     image_data = base64.b64decode(image_base64)
@@ -14,3 +15,5 @@ def detect_person(image_base64: str, conf: float = 0.58) -> bool:
     results = model(image_array, classes=[0], conf=conf, save=False, verbose=False)
     has_person = len(results[0].boxes) > 0
     return has_person
+
+
