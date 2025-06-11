@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TgParse")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ec4909f06567bb51d00bd877871987aeb33e6eac")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8adbedf19a8f21da9ce18b2ba7ad07a4b054dbfb")]
 [assembly: System.Reflection.AssemblyProductAttribute("TgParse")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TgParse")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
