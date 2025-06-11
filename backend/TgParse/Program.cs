@@ -65,6 +65,31 @@ namespace TgParse
         //    return content;
         //}  
 
+        public static async Task<bool> DetectPersonAsync(string imageUrl)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var imageBytes = await client.GetByteArrayAsync(imageUrl);
+
+                using var content = new MultipartFormDataContent();
+                var imageContent = new ByteArrayContent(imageBytes);
+                imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
+                content.Add(imageContent, "file", "image.jpg"); // Проверьте имя поля "file"
+
+                var response = await client.PostAsync("http://192.168.0.103:8001/detect-person", content);
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadAsStringAsync();
+                return bool.Parse(result.Trim().ToLower());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка детекции: {ex.Message}");
+                return false;
+            }
+        }
+
         public static async Task<HtmlDocument?> TakeHtml(string url)
         {
             using var httpClient = new HttpClient();
@@ -207,7 +232,7 @@ namespace TgParse
                         Console.WriteLine(messageText);
 
                         // Выводим изображение текущего сообщения
-                        if (!string.IsNullOrEmpty(metaImage))
+                        if (!string.IsNullOrEmpty(metaImage) && await DetectPersonAsync(metaImage))
                         {
                             Console.WriteLine(metaImage);
                             imageDbUrls.Add(metaImage);
@@ -217,8 +242,9 @@ namespace TgParse
                     // Обработка пустых сообщений (только изображения)
                     else if (contentValue == "")
                     {
-                        if (!string.IsNullOrEmpty(metaImage))
+                        if (!string.IsNullOrEmpty(metaImage) && await DetectPersonAsync(metaImage))
                         {
+                            
                             imageUrls.Add(metaImage);
                             imageDbUrls.Add(metaImage);
                         }
