@@ -7,18 +7,18 @@ using System.Xml;
 
 namespace TgParse
 {
-
-    public class LenOblast
+    
+    public class TgMessages
     {
         public int Id { get; set; }
-        public string? message { get; set; }
         public int messageId { get; set; }
+        public string? message { get; set; }
         public string? channelUrl { get; set; }
-        public string? imageUrl { get; set; }
+        public List<string>?  imageUrls { get; set; }
     }
     public class ApplicationContext: DbContext
     {
-        public DbSet<LenOblast> LenOblasts { get; set; }
+        public DbSet<TgMessages> TgMessages { get; set; }
         public ApplicationContext() 
         {
             Database.EnsureCreated();
@@ -107,37 +107,93 @@ namespace TgParse
                 Console.WriteLine($"Ошибка при запросе: {ex.Message}");
             }
 
+            var imageUrls = new List<string>();
+            var imageDbUrls = new List<string>();
+            string? messageTextDb = "";
 
-            for (int messageId = 1; messageId < maxId; messageId++)
+            for (int messageId = 17400; messageId < maxId; messageId++)
             {
 
                 string url = $"https://t.me/{channelName}/{messageId}";
                 var metaNode = await TakeHtml(url);
+                if (metaNode == null) continue;
                 var metaText = TakeText(metaNode);
-                var metaImage = TakeImage(metaNode);
+                var metaImage = TakeImage(metaNode).Attributes["content"].Value.Trim();
 
-                if (metaText != null && metaText.Attributes["content"] != null && metaText.Attributes["content"].Value != abouta.Attributes["content"].Value
-                    && metaText.Attributes["content"].Value != "" && !metaText.Attributes["content"].Value.Contains("#реклама") && metaText.Attributes["content"].Value.Contains("#"))
+                if (metaText != null && metaText.Attributes["content"] != null)
                 {
+                    string contentValue = metaText.Attributes["content"].Value;
 
-                    string messageText = metaText.Attributes["content"].Value.Trim();
-                    string imageText = metaImage.Attributes["content"].Value.Trim();
-
-                    messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
-                    messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
-
-                    using (ApplicationContext db = new())
+                    // Условия для текстовых сообщений
+                    if (contentValue != abouta.Attributes["content"].Value &&
+                        contentValue != "" &&
+                        !contentValue.Contains("#реклама") &&
+                        contentValue.Contains("#"))
                     {
-                        LenOblast fishMessage = new() { message = messageText, messageId = messageId, channelUrl = channelName, imageUrl = imageText };
-                        db.LenOblasts.AddRange(fishMessage);
-                        db.SaveChanges();
-                    }
+                        // Выводим накопленные изображения (если есть)
+                        if (imageUrls.Count > 0)
+                        {
+                            foreach (var imageUrl in imageUrls)
+                            {
+                                Console.WriteLine(imageUrl);
 
-                    Console.WriteLine($"ID: {messageId};  Текст сообщения:");
-                    Console.WriteLine(messageText);
+                            }
+                            //if (messageTextDb != "")
+                            //{
+                            //    using (ApplicationContext db = new())
+                            //    {
+                            //        TgMessages fishMessage = new() { message = messageTextDb, messageId = messageId, channelUrl = channelName, imageUrls = imageUrls };
+                            //        db.TgMessages.AddRange(fishMessage);
+                            //        db.SaveChanges();
+                            //    }
+                            //}
+                            Console.WriteLine();
+                            imageUrls.Clear();
+                            imageDbUrls.Clear();
+                        }
+
+                        // Обработка и вывод текста
+                        string messageText = contentValue.Trim();
+                        messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
+                        messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+                        messageTextDb = messageText;
+
+                        Console.WriteLine($"ID: {messageId}; Текст сообщения:");
+                        Console.WriteLine(messageText);
+
+                        // Выводим изображение текущего сообщения
+                        if (!string.IsNullOrEmpty(metaImage))
+                        {
+                            Console.WriteLine(metaImage);
+                            imageDbUrls.Add(metaImage);
+
+                        }
+                    }
+                    // Обработка пустых сообщений (только изображения)
+                    else if (contentValue == "")
+                    {
+                        if (!string.IsNullOrEmpty(metaImage))
+                        {
+                            imageUrls.Add(metaImage);
+                            imageDbUrls.Add(metaImage);
+                        }
+                    }
                 }
             }
 
+            // Вывод оставшихся изображений после цикла
+            if (imageUrls.Count > 0)
+            {
+                foreach (var imageUrl in imageUrls)
+                {
+                    Console.WriteLine(imageUrl);
+                }
+                Console.WriteLine();
+            }
         }
+
     }
+
+        
+    
 }
