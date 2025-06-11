@@ -7,13 +7,14 @@ using System.Xml;
 
 namespace TgParse
 {
-
+    
     public class TgMessages
     {
         public int Id { get; set; }
         public int messageId { get; set; }
         public string? message { get; set; }
         public string? channelUrl { get; set; }
+        public List<string>?  imageUrls { get; set; }
     }
     public class ApplicationContext: DbContext
     {
@@ -106,8 +107,9 @@ namespace TgParse
                 Console.WriteLine($"Ошибка при запросе: {ex.Message}");
             }
 
-            bool flag = false;
             var imageUrls = new List<string>();
+            var imageDbUrls = new List<string>();
+            string? messageTextDb = "";
 
             for (int messageId = 17400; messageId < maxId; messageId++)
             {
@@ -117,38 +119,6 @@ namespace TgParse
                 if (metaNode == null) continue;
                 var metaText = TakeText(metaNode);
                 var metaImage = TakeImage(metaNode).Attributes["content"].Value.Trim();
-
-
-                //if (metaText != null && metaText.Attributes["content"] != null && metaText.Attributes["content"].Value != abouta.Attributes["content"].Value
-                //    && metaText.Attributes["content"].Value != "" && !metaText.Attributes["content"].Value.Contains("#реклама") && metaText.Attributes["content"].Value.Contains("#"))
-                //{
-                //    imageUrls.Clear();
-                //    flag = false;
-                //    imageUrls.Add(metaImage);
-                //    Console.WriteLine(metaImage);
-
-                //    string messageText = metaText.Attributes["content"].Value.Trim();
-                //    //string imageText = metaImage.Attributes["content"].Value.Trim();
-
-                //    messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
-                //    messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
-
-                //    //using (ApplicationContext db = new())
-                //    //{
-                //    //    LenOblast fishMessage = new() { message = messageText, messageId = messageId, channelUrl = channelName, imageUrl = imageText };
-                //    //    db.LenOblasts.AddRange(fishMessage);
-                //    //    db.SaveChanges();
-                //    //}
-
-                //    Console.WriteLine($"ID: {messageId};  Текст сообщения:");
-                //    Console.WriteLine(messageText);
-                //}
-                //else if (metaText.Attributes["content"].Value == "")
-                //{
-                //    flag = true;
-                //    Console.WriteLine(metaImage);
-                //    imageUrls.Add(metaImage);
-                //}
 
                 if (metaText != null && metaText.Attributes["content"] != null)
                 {
@@ -168,14 +138,25 @@ namespace TgParse
                                 Console.WriteLine(imageUrl);
 
                             }
+                            //if (messageTextDb != "")
+                            //{
+                            //    using (ApplicationContext db = new())
+                            //    {
+                            //        TgMessages fishMessage = new() { message = messageTextDb, messageId = messageId, channelUrl = channelName, imageUrls = imageUrls };
+                            //        db.TgMessages.AddRange(fishMessage);
+                            //        db.SaveChanges();
+                            //    }
+                            //}
                             Console.WriteLine();
                             imageUrls.Clear();
+                            imageDbUrls.Clear();
                         }
 
                         // Обработка и вывод текста
                         string messageText = contentValue.Trim();
                         messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
                         messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+                        messageTextDb = messageText;
 
                         Console.WriteLine($"ID: {messageId}; Текст сообщения:");
                         Console.WriteLine(messageText);
@@ -184,6 +165,7 @@ namespace TgParse
                         if (!string.IsNullOrEmpty(metaImage))
                         {
                             Console.WriteLine(metaImage);
+                            imageDbUrls.Add(metaImage);
 
                         }
                     }
@@ -193,6 +175,7 @@ namespace TgParse
                         if (!string.IsNullOrEmpty(metaImage))
                         {
                             imageUrls.Add(metaImage);
+                            imageDbUrls.Add(metaImage);
                         }
                     }
                 }
