@@ -1,18 +1,22 @@
 ﻿using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.Runtime.Intrinsics.X86;
+using System.Drawing;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Text.Json;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System.Reflection.Metadata;
 using System.Diagnostics;
+using Microsoft.VisualBasic;
+using System.Net.Http.Json;
+using System.Text;
 
 namespace TgParse
 {
-    
     public class TgMessages
     {
         public int Id { get; set; }
@@ -36,56 +40,68 @@ namespace TgParse
 
     class Program
     {
-        public static async Task<string> GetRequestAsync(string url)
+        public static async Task<byte[]> GetRequestAsync(string url)
         {
             using (var client = new HttpClient())
             {
                 var response = await client.GetAsync(url);
-                return await response.Content.ReadAsStringAsync();
+                return await response.Content.ReadAsByteArrayAsync();
             }
         }
 
-        //static public async Task<MultipartFormDataContent> GetResponseAsync(string url)
-        //{
-        //    byte[] imageBytes;
-        //    using (var client = new HttpClient())
-        //    {
-        //        var response = await client.GetAsync(url);
-        //        imageBytes = await response.Content.ReadAsByteArrayAsync();
-        //    }
-        //    var content = new MultipartFormDataContent();
-
-        //    // Создаем контент-часть с изображением
-        //    var imageContent = new ByteArrayContent(imageBytes);
-        //    imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg"); // Укажите правильный MIME-тип
-
-        //    // Добавляем в multipart контейнер
-        //    // Параметры: данные, имя поля (обычно "file"), имя файла
-        //    content.Add(imageContent, "file", "fileName");
-        //    return content;
-        //}  
-
-        public static async Task<bool> DetectPersonAsync(string imageUrl)
+        static public async Task<MultipartFormDataContent> GetResponseAsync(string url)
         {
-            try
+            byte[] imageBytes;
+            using (var client = new HttpClient())
             {
-                using var client = new HttpClient();
-                var imageBytes = await client.GetByteArrayAsync(imageUrl);
-
-                using var content = new MultipartFormDataContent();
-                var imageContent = new ByteArrayContent(imageBytes);
-                imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
-                content.Add(imageContent, "file", "image.jpg"); // Проверьте имя поля "file"
-
-                var response = await client.PostAsync("http://192.168.0.103:8001/detect-person", content);
-                response.EnsureSuccessStatusCode();
-
-                var result = await response.Content.ReadAsStringAsync();
-                return bool.Parse(result.Trim().ToLower());
+                var response = await client.GetAsync(url);
+                imageBytes = await response.Content.ReadAsByteArrayAsync();
             }
-            catch (Exception ex)
+            var content = new MultipartFormDataContent();
+
+            // Создаем контент-часть с изображением
+            var imageContent = new ByteArrayContent(imageBytes);
+            imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg"); // Укажите правильный MIME-тип
+
+            // Добавляем в multipart контейнер
+            // Параметры: данные, имя поля (обычно "file"), имя файла
+            content.Add(imageContent, "image", "image");
+            return content;
+        }
+
+        public static async Task<bool> DetectPersonAsync(string url)
+        {
+            var base64Image = GetRequestAsync(url);
+            string ii = Convert.ToBase64String(await base64Image);
+            var jsonObject = new
             {
-                Console.WriteLine($"Ошибка детекции: {ex.Message}");
+                image = ii
+            };
+            // Сериализуем в JSON
+            string json = JsonSerializer.Serialize(jsonObject);
+            using HttpClient client = new HttpClient();
+            client.BaseAddress = new Uri("http://localhost:8001/");  
+
+            // Сериализация данных в JSON
+
+            HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Отправка POST-запроса
+            HttpResponseMessage response = await client.PostAsync("detect-person", content);
+
+            // Чтение ответа
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                Console.WriteLine($"Результат: {responseBody}");
+                JsonDocument doc = JsonDocument.Parse(responseBody);
+                return doc.RootElement.GetProperty("person_detected").GetBoolean();
+
+            }
+            else
+            {
+                Console.WriteLine($"Ошибка: {response.StatusCode}");
                 return false;
             }
         }
@@ -123,15 +139,17 @@ namespace TgParse
 
         static async Task Main(string[] args)
         {
+            var urlka = "https://cdn4.cdn-telegram.org/file/sfpK1vrJH2r3lwLTQKNzr4a78fwG8g44Qvlat6Ud9RZwdihs1KnGynRORKPNcJ0MNTrDqelGKlLICWnUNwyE7c_VFI3uM1bD1rIgP3Drr4K9R7q9KISoOOjSTeLh-TDmtUX6uFlBDnyDEngzj-2KpmgVwH81jqx7zx97ZB11sRocdpGAo4eEnHarmXmUM-E0n42mz_dUU8XpSwR8JGnfh_lS9r_Y8nqECoo5zbc9nN9n9GllB2JYEYFN_-Gd0rAUAgTaA-JkNwSLHWAcu15M-UP-RZzXN1azWMzeGCaK-M1a5sFoK4kg8hB2VIkitGa6-9uN4iA7kLQCbiljw0EjWA.jpg";
+            var Geting = await GetResponseAsync(urlka);
+            var guting = await GetRequestAsync(urlka);
+            string base64Image = Convert.ToBase64String(guting);
 
-            //var urlka = "https://cdn4.cdn-telegram.org/file/sfpK1vrJH2r3lwLTQKNzr4a78fwG8g44Qvlat6Ud9RZwdihs1KnGynRORKPNcJ0MNTrDqelGKlLICWnUNwyE7c_VFI3uM1bD1rIgP3Drr4K9R7q9KISoOOjSTeLh-TDmtUX6uFlBDnyDEngzj-2KpmgVwH81jqx7zx97ZB11sRocdpGAo4eEnHarmXmUM-E0n42mz_dUU8XpSwR8JGnfh_lS9r_Y8nqECoo5zbc9nN9n9GllB2JYEYFN_-Gd0rAUAgTaA-JkNwSLHWAcu15M-UP-RZzXN1azWMzeGCaK-M1a5sFoK4kg8hB2VIkitGa6-9uN4iA7kLQCbiljw0EjWA.jpg";
-            //var Geting = await GetResponseAsync(urlka);
             //Console.WriteLine(Geting);
             //using (var httpClient = new HttpClient())
             //{
             //    var response = await httpClient.PostAsync("https://postman-echo.com/post", Geting);
             //    response.EnsureSuccessStatusCode();
-            //    Console.WriteLine(await response.Content.ReadAsStringAsync());               
+            //    Console.WriteLine(await response.Content.ReadAsStringAsync());
             //}
 
             int maxId = 0;
@@ -180,7 +198,7 @@ namespace TgParse
             var imageDbUrls = new List<string>();
             string? messageTextDb = "";
 
-            for (int messageId = 17400; messageId < maxId; messageId++)
+            for (int messageId = 1; messageId < maxId; messageId++)
             {
 
                 string url = $"https://t.me/{channelName}/{messageId}";
@@ -188,7 +206,7 @@ namespace TgParse
                 if (metaNode == null) continue;
                 var metaText = TakeText(metaNode);
                 var metaImage = TakeImage(metaNode).Attributes["content"].Value.Trim();
-                metaImage = await GetRequestAsync(metaImage);
+                //var metaImage = await GetRequestAsync(metaImage);
 
                 if (metaText != null && metaText.Attributes["content"] != null)
                 {
@@ -220,8 +238,7 @@ namespace TgParse
                             Console.WriteLine();
                             imageUrls.Clear();
                             imageDbUrls.Clear();
-                        }
-
+                        }                       
                         // Обработка и вывод текста
                         string messageText = contentValue.Trim();
                         messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
@@ -232,7 +249,7 @@ namespace TgParse
                         Console.WriteLine(messageText);
 
                         // Выводим изображение текущего сообщения
-                        if (!string.IsNullOrEmpty(metaImage) && await DetectPersonAsync(metaImage))
+                        if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(metaImage)))
                         {
                             Console.WriteLine(metaImage);
                             imageDbUrls.Add(metaImage);
@@ -242,7 +259,7 @@ namespace TgParse
                     // Обработка пустых сообщений (только изображения)
                     else if (contentValue == "")
                     {
-                        if (!string.IsNullOrEmpty(metaImage) && await DetectPersonAsync(metaImage))
+                        if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(metaImage)))
                         {
                             
                             imageUrls.Add(metaImage);

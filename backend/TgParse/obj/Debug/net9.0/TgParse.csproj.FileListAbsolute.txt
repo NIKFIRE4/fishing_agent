@@ -30,3 +30,10 @@ C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\D
 C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.Extensions.Primitives.dll
 C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Npgsql.dll
 C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.AspNetCore.Http.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.AspNetCore.Http.Abstractions.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.AspNetCore.Http.Features.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.AspNetCore.WebUtilities.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.Extensions.ObjectPool.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Microsoft.Net.Http.Headers.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\TgParse\bin\Debug\net9.0\Newtonsoft.Json.dll
