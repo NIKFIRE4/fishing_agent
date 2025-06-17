@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from endpoints.classes_for_endpoint import ImageRequest
+from endpoints.classes_for_endpoint import ImageRequest, MessageRequest
+from my_openrouter_chat import get_important_information
 import uvicorn
 import httpx
 from CV_for_person_detect.YOLO_predict import detect_person
@@ -42,6 +43,19 @@ async def get_fishing_places():
             status_code=502,
             detail=f"Ошибка при получении рыбацких мест: {str(e)}"
         )
+    
+@app.post("/get_short_description")
+async def get_short_description(request: MessageRequest):
+    try:
+        short_message = get_important_information(request.message)
+        
+        return JSONResponse(content={
+            "short_message": short_message,
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
+
 
 if __name__ == "__main__":
     uvicorn.run(

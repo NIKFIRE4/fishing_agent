@@ -29,4 +29,3 @@ def get_important_information(message: str):
         "caught_fishes": result.caught_fishes,
         "water_space": result.water_space,
     }
-
