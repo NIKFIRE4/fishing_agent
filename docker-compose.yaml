@@ -1,0 +1,20 @@
+version: "v2.32.4-desktop.1"
+services:
+  ml_service:
+    build:
+      context: ./ML_agent
+      dockerfile: Dockerfile
+    image: fishing-agent-ml:latest
+    container_name: fishing_agent_ml
+    ports:
+      - "8001:8001"
+    # environment:
+    #   # если внутри кода вы берёте BACKEND_URL из переменных
+    #   - BACKEND_URL=http://backend_service:8002
+    #   - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
