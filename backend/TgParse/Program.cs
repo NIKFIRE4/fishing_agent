@@ -80,7 +80,7 @@ namespace TgParse
             // Сериализуем в JSON
             string json = JsonSerializer.Serialize(jsonObject);
             using HttpClient client = new HttpClient();
-            client.BaseAddress = new Uri("http://localhost:8001/");  
+            client.BaseAddress = new Uri("http://ml_service:8001/");  
 
             // Сериализация данных в JSON
 
