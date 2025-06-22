@@ -1,6 +1,8 @@
 ﻿using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Minio;
+using Minio.DataModel.Args;
 using System.Drawing;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -14,10 +16,87 @@ using System.Diagnostics;
 using Microsoft.VisualBasic;
 using System.Net.Http.Json;
 using System.Text;
+using Minio.Exceptions;
 
 namespace TgParse
 {
-    public class TgMessages
+    using Minio;
+    using Minio.Exceptions;
+    using System;
+    using System.IO;
+    using System.Threading.Tasks;
+
+    public class MinioUploader
+    {
+        private readonly IMinioClient _minio; // Изменили тип на интерфейс
+        private readonly string _bucketName;
+
+        public MinioUploader()
+        {
+            // Получение параметров из переменных окружения
+            var endpoint = Environment.GetEnvironmentVariable("MINIO_ENDPOINT")
+                ?? throw new ArgumentNullException("MINIO_ENDPOINT is not set");
+
+            var accessKey = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY")
+                ?? throw new ArgumentNullException("MINIO_ACCESS_KEY is not set");
+
+            var secretKey = Environment.GetEnvironmentVariable("MINIO_SECRET_KEY")
+                ?? throw new ArgumentNullException("MINIO_SECRET_KEY is not set");
+
+            _bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME")
+                ?? "images";
+
+            var useSsl = bool.Parse(
+                Environment.GetEnvironmentVariable("MINIO_USE_SSL")
+                ?? "false"
+            );
+
+            // Теперь используем интерфейс IMinioClient
+            _minio = new MinioClient()
+                .WithEndpoint(endpoint)
+                .WithCredentials(accessKey, secretKey)
+                .WithSSL(useSsl)
+                .Build(); // Build() возвращает IMinioClient
+        }
+
+        public async Task UploadImage(byte[] imageData, string objectName, string contentType = "image/jpeg")
+        {
+            using var stream = new MemoryStream(imageData);
+
+            try
+            {
+                // Проверка и создание бакета
+                var bucketExistsArgs = new BucketExistsArgs()
+                    .WithBucket(_bucketName);
+
+                bool found = await _minio.BucketExistsAsync(bucketExistsArgs);
+
+                if (!found)
+                {
+                    var makeBucketArgs = new MakeBucketArgs()
+                        .WithBucket(_bucketName);
+
+                    await _minio.MakeBucketAsync(makeBucketArgs);
+                }
+
+                // Загрузка объекта
+                var putObjectArgs = new PutObjectArgs()
+                    .WithBucket(_bucketName)
+                    .WithObject(objectName)
+                    .WithStreamData(stream)
+                    .WithObjectSize(stream.Length)
+                    .WithContentType(contentType);
+
+                await _minio.PutObjectAsync(putObjectArgs);
+            }
+            catch (MinioException e)
+            {
+                Console.WriteLine($"MinIO Error: {e.Message}");
+            }
+        }
+    }
+
+    public class TgMessages 
     {
         public int Id { get; set; }
         public int messageId { get; set; }
@@ -61,10 +140,9 @@ namespace TgParse
 
             // Создаем контент-часть с изображением
             var imageContent = new ByteArrayContent(imageBytes);
-            imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg"); // Укажите правильный MIME-тип
+            imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
 
-            // Добавляем в multipart контейнер
-            // Параметры: данные, имя поля (обычно "file"), имя файла
+            // Добавляем в multipart контейнер        
             content.Add(imageContent, "image", "image");
             return content;
         }
@@ -144,6 +222,25 @@ namespace TgParse
             var guting = await GetRequestAsync(urlka);
             string base64Image = Convert.ToBase64String(guting);
 
+            try
+            {
+                var uploader = new MinioUploader();
+
+              
+                
+
+                // Генерируем имя файла
+                string objectName = $"uploaded_{DateTime.Now:yyyyMMdd_HHmmss}.jpg";
+
+                // Загружаем в MinIO
+                await uploader.UploadImage(guting, objectName, "image/jpeg");
+
+                Console.WriteLine($"Successfully uploaded {objectName} to MinIO");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
             //Console.WriteLine(Geting);
             //using (var httpClient = new HttpClient())
             //{

@@ -5,3 +5,5 @@
 /ML_agent/
 
 /.env
+/local_images
+/minio_data
