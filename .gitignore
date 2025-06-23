@@ -1,0 +1,7 @@
+﻿**/backend/TgParse/obj/
+**/bin/
+**/.vs/
+/frontend/
+/ML_agent/
+
+/.env

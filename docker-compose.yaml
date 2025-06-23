@@ -1,6 +1,7 @@
-version: "v2.32.4-desktop.1"
 services:
   ml_service:
+    env_file:
+       - .env
     build:
       context: ./ML_agent
       dockerfile: Dockerfile
@@ -8,13 +9,23 @@ services:
     container_name: fishing_agent_ml
     ports:
       - "8001:8001"
-    # environment:
-    #   # если внутри кода вы берёте BACKEND_URL из переменных
-    #   - BACKEND_URL=http://backend_service:8002
-    #   - PYTHONUNBUFFERED=1
+    environment:
+      - BACKEND_URL=http://backend_service:80/  # Исправлено
+      - PYTHONUNBUFFERED=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
       interval: 30s
       timeout: 5s
       retries: 3
 
+  backend_service:
+    build:
+      context: ./backend/TgParse
+      dockerfile: Dockerfile
+    image: fishing-backend:latest
+    container_name: fishing_backend
+    ports:
+      - "8002:80"
+    depends_on:
+      ml_service:
+        condition: service_healthy
