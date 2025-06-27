@@ -30,8 +30,11 @@ services:
       - MINIO_SECRET_KEY=adminadmin
       - MINIO_BUCKET_NAME=images 
       - MINIO_USE_SSL=false
+      - DB_CONNECTION_STRING=Host=db;Port=5432;Database=FishingAgent;Username=postgres;Password=567438
     ports:
       - "8002:80"
+
+
     depends_on:
       ml_service:
         condition: service_healthy
@@ -39,6 +42,8 @@ services:
         condition: service_started
       mc:
         condition: service_started    
+      db:
+        condition: service_healthy
      
   minio:
     image: minio/minio:latest
@@ -62,11 +67,32 @@ services:
       MINIO_SERVER: minio:9000 
       MINIO_ACCESS_KEY: admin    
       MINIO_SECRET_KEY: adminadmin    
-    volumes:
-      - ./local_images:/images 
+    # volumes:
+    #   - ./local_images:/images 
     entrypoint: >
       /bin/sh -c "
-      mc alias set myminio http://minio:9000 admin adminadmin;
-      mc mb myminio/images;
-      mc cp /images/* myminio/images/;  
-      tail -f /dev/null"         
+      #mc alias set myminio http://minio:9000 admin adminadmin;
+      #mc mb myminio/images;
+      #mc cp /images/* myminio/images/;  
+      tail -f /dev/null"    
+
+  db:
+    image: postgres:14
+    container_name: postgres_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=567438
+      - POSTGRES_DB=FishingAgent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
