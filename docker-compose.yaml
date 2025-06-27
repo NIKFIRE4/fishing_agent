@@ -1,0 +1,98 @@
+services:
+  ml_service:
+    env_file:
+       - .env
+    build:
+      context: ./ML_agent
+      dockerfile: Dockerfile
+    image: fishing-agent-ml:latest
+    container_name: fishing_agent_ml
+    ports:
+      - "8001:8001"
+    environment:
+      - BACKEND_URL=http://backend_service:80/
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  backend_service:
+    build:
+      context: ./backend/TgParse
+      dockerfile: Dockerfile
+    image: fishing-backend:latest
+    container_name: fishing_backend
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=adminadmin
+      - MINIO_BUCKET_NAME=images 
+      - MINIO_USE_SSL=false
+      - DB_CONNECTION_STRING=Host=db;Port=5432;Database=FishingAgent;Username=postgres;Password=567438
+    ports:
+      - "8002:80"
+
+
+    depends_on:
+      ml_service:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      mc:
+        condition: service_started    
+      db:
+        condition: service_healthy
+     
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000" 
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: adminadmin 
+    volumes:
+      - ./minio_data:/data 
+    command: server /data --console-address :9001
+
+  mc:
+    image: minio/mc:latest
+    container_name: mc
+    depends_on:
+      - minio
+    environment:
+      MINIO_SERVER: minio:9000 
+      MINIO_ACCESS_KEY: admin    
+      MINIO_SECRET_KEY: adminadmin    
+    # volumes:
+    #   - ./local_images:/images 
+    entrypoint: >
+      /bin/sh -c "
+      #mc alias set myminio http://minio:9000 admin adminadmin;
+      #mc mb myminio/images;
+      #mc cp /images/* myminio/images/;  
+      tail -f /dev/null"    
+
+  db:
+    image: postgres:14
+    container_name: postgres_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=567438
+      - POSTGRES_DB=FishingAgent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
