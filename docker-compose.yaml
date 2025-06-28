@@ -1,7 +1,7 @@
 services:
   ml_service:
     env_file:
-       - .env
+       - ./ML_agent/.env
     build:
       context: ./ML_agent
       dockerfile: Dockerfile
