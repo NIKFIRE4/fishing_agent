@@ -111,13 +111,6 @@ async def compare_fishing_places(request: MessageRequest):
                     "description": request.message,
                     })
 
-        # если список пуст или не нашлось ничего
-        return JSONResponse(content={
-            "new_place": True,
-            "route_info": None,
-            "target_place": target_name,
-        })
-
     except HTTPException:
         raise
     except Exception as e:
