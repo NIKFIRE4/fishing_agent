@@ -21,6 +21,7 @@ using Minio.Exceptions;
 namespace TgParse
 {
     using Docker.DotNet.Models;
+    using Microsoft.EntityFrameworkCore.Metadata.Conventions;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Minio;
@@ -58,7 +59,7 @@ namespace TgParse
                 .WithEndpoint(endpoint)
                 .WithCredentials(accessKey, secretKey)
                 .WithSSL(useSsl)
-                .Build(); 
+                .Build();
         }
 
         public async Task<string>? UploadImage(byte[] imageData, string contentType = "image/jpeg")
@@ -99,18 +100,18 @@ namespace TgParse
                     .WithObjectSize(stream.Length)
                     .WithContentType(contentType);
 
-                await _minio.PutObjectAsync(putObjectArgs);              
+                await _minio.PutObjectAsync(putObjectArgs);
             }
             catch (MinioException e)
             {
                 Console.WriteLine($"MinIO Error: {e.Message}");
-                
+
             }
             return objectName;
         }
     }
 
-    public class TgMessages 
+    public class TgMessages
     {
         public int Id { get; set; }
         public int MessageId { get; set; }
@@ -128,11 +129,11 @@ namespace TgParse
         public TgMessages? Message { get; set; }
     }
 
-    public class ApplicationContext: DbContext
+    public class ApplicationContext : DbContext
     {
         public DbSet<TgMessages> TgMessages { get; set; }
         public DbSet<TgPhotos> TgPhotos { get; set; }
-       
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
@@ -144,9 +145,9 @@ namespace TgParse
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<TgMessages>()
-                .HasMany(m => m.Photos)       
-                .WithOne(p => p.Message)       
-                .HasForeignKey(p => p.MessageId) 
+                .HasMany(m => m.Photos)
+                .WithOne(p => p.Message)
+                .HasForeignKey(p => p.MessageId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<TgMessages>()
@@ -212,7 +213,6 @@ namespace TgParse
             {
                 string responseBody = await response.Content.ReadAsStringAsync();
 
-                Console.WriteLine($"Результат: {responseBody}");
                 JsonDocument doc = JsonDocument.Parse(responseBody);
                 return doc.RootElement.GetProperty("person_detected").GetBoolean();
 
@@ -290,19 +290,12 @@ namespace TgParse
                 // Загружаем в MinIO
                 var objectName = await uploader.UploadImage(guting, "image/jpeg");
 
-                Console.WriteLine($"Successfully upl {objectName} to MinIO");
+                Console.WriteLine($"Successfully uploade {objectName} to MinIO");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
             }
-            //Console.WriteLine(Geting);
-            //using (var httpClient = new HttpClient())
-            //{
-            //    var response = await httpClient.PostAsync("https://postman-echo.com/post", Geting);
-            //    response.EnsureSuccessStatusCode();
-            //    Console.WriteLine(await response.Content.ReadAsStringAsync());
-            //}
 
             int maxId = 0;
             string channelName = "rybalka_spb_lenoblasti";
@@ -378,15 +371,32 @@ namespace TgParse
                                 Console.WriteLine(imageUrl);
 
                             }
-                            //if (messageTextDb != "")
-                            //{
-                            //    using (ApplicationContext db = new())
-                            //    {
-                            //        TgMessages fishMessage = new() { MessageText = messageTextDb, MessageId = messageId, channelUrl = channelName };
-                            //        db.TgMessages.AddRange(fishMessage);
-                            //        db.SaveChanges();
-                            //    }
-                            //}
+                            if (messageTextDb != "")
+                            {
+
+
+
+                                var message = new TgMessages
+                                {
+
+                                    MessageText = messageTextDb,
+                                    MessageId = messageId,
+                                    СhannelUrl = channelName,
+                                };
+                                foreach (var imageDbUrl in imageDbUrls)
+                                {
+                                    message.Photos.Add(new TgPhotos { PhotoUrl = imageDbUrl });
+                                }
+                                using (ApplicationContext db = new())
+                                {
+                                    db.TgMessages.AddRange(message);
+                                    db.SaveChanges();
+                                }
+
+
+
+                            }
+                            
                             Console.WriteLine();
                             imageUrls.Clear();
                             imageDbUrls.Clear();
@@ -403,22 +413,48 @@ namespace TgParse
                         // Выводим изображение текущего сообщения
                         if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(metaImage)))
                         {
-                            Console.WriteLine(metaImage);
-                            imageDbUrls.Add(metaImage);
+                            try
+                            {
+                                var byteImage = await GetRequestAsync(metaImage);
+                                var uploader = new MinioUploader();
+                                var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                                imageDbUrls.Add(objectName);
+                                Console.WriteLine($"Image: {objectName}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error: {ex.Message}");
+                            }
+
+
 
                         }
+                        // Обработка пустых сообщений (только изображения)
+                        
                     }
-                    // Обработка пустых сообщений (только изображения)
                     else if (contentValue == "")
                     {
                         if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(metaImage)))
                         {
+                            try
+                            {
+                                var byteImage = await GetRequestAsync(metaImage);
+                                var uploader = new MinioUploader();
+                                var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                                imageUrls.Add(objectName);
+                                imageDbUrls.Add(objectName);
 
-                            imageUrls.Add(metaImage);
-                            imageDbUrls.Add(metaImage);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error: {ex.Message}");
+                            }
+
                         }
                     }
                 }
+
+                
             }
 
             // Вывод оставшихся изображений после цикла
@@ -430,6 +466,8 @@ namespace TgParse
                 }
                 Console.WriteLine();
             }
+
+
         }
 
         static async Task Main(string[] args)
@@ -444,8 +482,7 @@ namespace TgParse
                 ApplyMigrations(context);
             }
 
-           await RunApplication();
+            await RunApplication();
         }
-
     }
 }
