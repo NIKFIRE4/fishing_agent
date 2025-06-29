@@ -447,6 +447,5 @@ namespace TgParse
            await RunApplication();
         }
 
-
     }
 }
