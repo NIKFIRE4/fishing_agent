@@ -53,63 +53,58 @@ async def get_short_description(request: MessageRequest):
 @app.post("/compare_fishing_places")
 async def compare_fishing_places(request: MessageRequest):
     try:
-        # получаем краткую инфу и список имен мест из сообщения
         short_message = get_important_information(request.message)
         target_names = short_message.get("name_place", [])
         if not target_names:
             raise HTTPException(status_code=400, detail="Не указано ни одного места для сравнения")
-        target_name = target_names[0]
+        target_name = target_names[0] 
 
-        # геокодим новое место, если нет координат в сообщении
         target_coords = short_message.get("coordinates")
         if not target_coords:
             target_coords = await geocode_name_to_coords(target_name)
 
         fishing_places = await fetch_fishing_places()
-
-        
+                  
         for place in fishing_places:
             name = place.get("name_place", [None])[0]
             coords = place.get("coordinates", [])
 
-            # если у существующего места нет координат, геокодируем его
             if not coords:
                 try:
                     coords = await geocode_name_to_coords(name)
                 except ValueError:
-                    # пропускаем, если не можем геокодировать
                     continue
 
-            # проверка на схожесть по энкодеру
             if get_similarity(target_name, name):
-                short_description = get_important_information(place.get("description", []) + request.message)
+                short_description = get_important_information(place.get("description", "None") + request.message)
                 return JSONResponse(content={
                     "new_place": False,
                     "name_place": place.get("name_place"),
                     "coordinates": coords,
                     "short_description": short_description,
-                    "description": place.get("description", []) + request.message,
+                    "description": place.get("description", "None") + request.message,
                 })
 
-            # если не совпало, считаем маршрут от существующего до нового места
             route = await get_route(start_coord=coords, end_coord=target_coords)
             if route.get('distance_km') < 2:
-                short_description = get_important_information(place.get("description", []) + request.message)
-                return JSONResponse(content={"new_place": False,
-                                             "name_place": place.get("name_place"),
-                                             "coordinates": coords,
-                                             "short_description": short_description,
-                                             "description": place.get("description", []) + request.message,
-                                             })
-            else:
-                short_description = get_important_information(request.message)
+                short_description = get_important_information(place.get("description", "None") + request.message)
                 return JSONResponse(content={
-                    "new_place": True,
-                    "name_place": target_name,
-                    "coordinates": target_coords,
+                    "new_place": False,
+                    "name_place": place.get("name_place"),
+                    "coordinates": coords,
                     "short_description": short_description,
-                    "description": request.message,
-                    })
+                    "description": place.get("description", "None") + request.message,
+                })
+
+        # Создание нового места только если ничего не найдено после всех итераций
+        short_description = get_important_information(request.message)
+        return JSONResponse(content={
+            "new_place": True,
+            "name_place": target_name,
+            "coordinates": target_coords,
+            "short_description": short_description,
+            "description": request.message,
+        })
 
     except HTTPException:
         raise
