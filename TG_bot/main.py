@@ -34,9 +34,10 @@ async def main():
     
     # Регистрация роутеров
     dp.include_router(search_router)
+    dp.include_router(history_router)
     dp.include_router(start_router)
     dp.include_router(navigation_router)
-    dp.include_router(history_router)
+    
     dp.include_router(callbacks_router)
     
     logger.info("Бот запускается...")

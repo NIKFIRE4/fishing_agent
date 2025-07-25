@@ -7,6 +7,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram_calendar import SimpleCalendarCallback, SimpleCalendar
 from datetime import datetime, date
 import logging
+from aiogram_calendar.schemas import CalendarLabels
+import calendar
 
 from config.settings import MESSAGES, ML_SERVICE_URL
 from states.search_states import SearchStates
@@ -16,8 +18,22 @@ from database.requests import get_or_create_user
 from ML_integration import MLServiceClient
 
 logger = logging.getLogger(__name__)
-search_router = Router()
 
+search_router = Router()
+class RussianCalendar(SimpleCalendar):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Прямо заменяем подписи:
+        self._labels = CalendarLabels(
+            cancel_caption="Отмена",
+            today_caption="Сегодня",
+            days_of_week=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+            months=[
+                "Январь", "Февраль", "Март", "Апрель",
+                "Май", "Июнь", "Июль", "Август",
+                "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+            ],
+        )
 @search_router.message(F.text == "🎣 Начать поиск мест")
 async def start_search(message: Message, state: FSMContext):
     """
@@ -41,7 +57,7 @@ async def start_search(message: Message, state: FSMContext):
     )
 
     # Отправляем календарь
-    calendar_markup = await SimpleCalendar().start_calendar()
+    calendar_markup = await RussianCalendar().start_calendar()
     await message.answer(
         "Выберите дату:",
         reply_markup=calendar_markup
@@ -54,10 +70,18 @@ async def process_calendar_selection(callback: CallbackQuery,
     """
     Обработка выбора даты. Проверяем на прошлую дату, сохраняем в FSM и запрашиваем текстовый запрос.
     """
-    selected, selected_date = await SimpleCalendar().process_selection(callback, callback_data)
-    if not selected:
-        return
+    # Специальная обработка кнопки "Сегодня"
+    if str(callback_data.act) == "SimpleCalAct.today":
+        selected_date = date.today()
+        selected = True
+    else:
+        selected, selected_date = await RussianCalendar().process_selection(callback, callback_data)
+        
+        # Если календарь еще не завершил выбор (пользователь переключает месяцы/годы)
+        if not selected:
+            return
 
+    # Приводим к типу date, если получили datetime
     if isinstance(selected_date, datetime):
         selected_date = selected_date.date()
 
@@ -68,7 +92,7 @@ async def process_calendar_selection(callback: CallbackQuery,
         )
         # Перерисовываем календарь на текущий месяц
         today = date.today()
-        calendar_markup = await SimpleCalendar().start_calendar(year=today.year, month=today.month)
+        calendar_markup = await RussianCalendar().start_calendar(year=today.year, month=today.month)
         try:
             await callback.message.edit_reply_markup(reply_markup=calendar_markup)
         except Exception as e:
