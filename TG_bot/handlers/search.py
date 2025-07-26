@@ -150,10 +150,11 @@ async def process_search_request(message: Message, state: FSMContext):
                 user_query=user_request
             )
             await state.set_state(SearchStates.browsing_spots)
-
+            data = await state.get_data()
+            selected_date = data.get("fishing_date")
             # Показываем первую локацию
             await show_spot(
-                message, spots[0], 0, len(spots), user_coords, state
+                message, spots[0], 0, len(spots), user_coords, state, selected_date
             )
         else:
             await message.answer(

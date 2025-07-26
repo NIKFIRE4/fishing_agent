@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 import logging
 
+from datetime import datetime, date
 from keyboards.inline import get_spot_navigation_keyboard
 from utils.formatters import format_spot_description
 from utils.media_handler import MediaHandler
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 navigation_router = Router()
 
 async def show_spot(message_or_callback, spot: dict, current_index: int, total_spots: int,
-                    user_coords: list = None, state: FSMContext = None):
+                    user_coords: list = None, state: FSMContext = None, selected_date: date = None):
     """Отображает информацию о месте рыбалки"""
     try:
         if hasattr(message_or_callback, 'message'):  # CallbackQuery
@@ -23,7 +24,7 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
             bot_instance = message_or_callback.bot
             user_id = message_or_callback.from_user.id
         
-        description = format_spot_description(spot, user_coords)
+        description = await format_spot_description(spot, user_coords, selected_date)
         spot_id = spot.get('id', str(current_index))
         keyboard = get_spot_navigation_keyboard(current_index, total_spots, spot_id)
         
@@ -73,6 +74,7 @@ async def handle_spot_navigation(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
     data = await state.get_data()
+    selected_date = data.get("fishing_date")
     spots = data.get('spots', [])
     user_coords = data.get('user_coordinates')
     
@@ -92,7 +94,7 @@ async def handle_spot_navigation(callback: CallbackQuery, state: FSMContext):
         return
     
     await state.update_data(current_index=new_index)
-    await show_spot(callback, spots[new_index], new_index, len(spots), user_coords, state)
+    await show_spot(callback, spots[new_index], new_index, len(spots), user_coords, state, selected_date)
 
 @navigation_router.callback_query(F.data == "spot_info")
 async def handle_spot_info(callback: CallbackQuery):

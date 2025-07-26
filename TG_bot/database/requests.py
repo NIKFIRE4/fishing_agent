@@ -1,7 +1,9 @@
 
 from database.models import async_session, User, SelectedFishingSpot
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy import Date
+from typing import Union, List
+from datetime import date
 async def get_or_create_user(tg_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получить или создать пользователя"""
     async with async_session() as session:
@@ -75,3 +77,33 @@ async def get_user_fishing_history(tg_id: int, limit: int = 10):
             .limit(limit)
         )
         return result.scalars().all()
+    
+async def count_spot_reservations(
+    spot_coordinates: Union[str, List[float]],
+    fishing_date: date
+) -> int:
+    """
+    Считает, сколько разных пользователей уже выбирали данную локацию
+    spot_coordinates на указанную fishing_date.
+
+    Параметры:
+        spot_coordinates: строка "lat,lon" или [lat, lon]
+        fishing_date: date — день рыбалки
+    Возвращает:
+        int — количество уникальных пользователей
+    """
+    # Приводим координаты к строке, если списком
+    if isinstance(spot_coordinates, list):
+        spot_coordinates = f"{spot_coordinates[0]},{spot_coordinates[1]}"
+
+    async with async_session() as session:
+        # Запрос: считаем уникальных user_id
+        stmt = (
+            select(func.count(func.distinct(SelectedFishingSpot.user_id)))
+            .where(SelectedFishingSpot.spot_coordinates == spot_coordinates)
+            .where(SelectedFishingSpot.fishing_date == fishing_date)
+        )
+
+        result = await session.execute(stmt)
+        count: int = result.scalar_one()  # всегда вернёт число, даже если 0
+        return count
