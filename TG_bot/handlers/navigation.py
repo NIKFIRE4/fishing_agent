@@ -29,6 +29,11 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
         keyboard = get_spot_navigation_keyboard(current_index, total_spots, spot_id)
         
         photos = spot.get('photos') or spot.get('images') or []
+        photos = [
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\two.jpg",
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\first.jpg",
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\free.jpg"
+                            ]
         media_items = MediaHandler.prepare_media_items(photos, description)
         
         # Получаем данные состояния

@@ -8,9 +8,9 @@ ML_SERVICE_URL = os.getenv("ML_SERVICE_URL")
 
 # Пути к изображениям-заглушкам
 FALLBACK_IMAGES = [
-    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\4474172e-20de-4264-aafa-a94c66abd7b2.png",
-    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\ecaecf1e-ce43-4d72-9555-7b83d73dabe5.png",
-    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\i-_3_.png"
+    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\two.jpg",
+    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\first.jpg",
+    r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\free.jpg"
 ]
 
 # Лимиты
