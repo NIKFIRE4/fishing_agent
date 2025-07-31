@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-
+import whisper
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -16,9 +16,15 @@ from keyboards.main_menu import get_start_keyboard
 from handlers.navigation import show_spot
 from database.requests import get_or_create_user
 from ML_integration import MLServiceClient
-
+from utils.voice_processor import process_voice_message, is_voice_available
 logger = logging.getLogger(__name__)
-
+try:
+    logger.info("Загрузка модели Whisper...")
+    whisper_model = whisper.load_model("small")  # Можно изменить на "base" или "tiny"
+    logger.info("Модель Whisper загружена успешно")
+except Exception as e:
+    logger.error(f"Ошибка загрузки модели Whisper: {e}")
+    whisper_model = None
 search_router = Router()
 class RussianCalendar(SimpleCalendar):
     def __init__(self, **kwargs):
@@ -115,56 +121,116 @@ async def process_calendar_selection(callback: CallbackQuery,
 
     # Переходим к вводу поискового запроса
     await state.set_state(SearchStates.waiting_for_search_request)
+    request_message = MESSAGES['search']['request_prompt']
+    if is_voice_available():
+        request_message += "\n\n🎤 <i>Вы можете отправить текст или записать голосовое сообщение</i>"
+    
     await callback.message.answer(
-        MESSAGES['search']['request_prompt'],
+        request_message,
         parse_mode='HTML'
     )
 
-@search_router.message(SearchStates.waiting_for_search_request, F.text)
-async def process_search_request(message: Message, state: FSMContext):
+@search_router.message(SearchStates.waiting_for_search_request, F.voice)
+async def process_voice_search_request(message: Message, state: FSMContext):
     """
-    Принимаем текстовый запрос пользователя, отправляем его в ML-сервис и отображаем результаты.
+    Обработка голосового сообщения пользователя для поискового запроса.
     """
-    user_request = message.text
-    processing_msg = await message.answer(
-        MESSAGES['search']['processing']
-    )
+    # Показываем индикатор обработки
+    processing_msg = await message.answer("🎤 Распознаю речь...")
 
-    ml_client = MLServiceClient(ML_SERVICE_URL)
-    result = await ml_client.search_fishing_spots(
-        user_id=message.from_user.id,
-        query=user_request
-    )
-
-    await processing_msg.delete()
-
-    if result.get("success"):
-        spots = result.get("spots", [])
-        if spots:
-            user_coords = spots[0].get("location_user")
-            # Сохраняем результаты и текущий индекс
-            await state.update_data(
-                spots=spots,
-                current_index=0,
-                user_coordinates=user_coords,
-                user_query=user_request
+    try:
+        # Используем наш модуль для обработки голоса, передаем bot
+        result = await process_voice_message(message.voice, message.bot)
+        
+        if result["success"]:
+            user_request = result["text"]
+            
+            # Показываем распознанный текст пользователю
+            await processing_msg.edit_text(
+                f"✅ Распознано: <i>«{user_request}»</i>\n\n🔍 Ищу места для рыбалки...", 
+                parse_mode='HTML'
             )
-            await state.set_state(SearchStates.browsing_spots)
-            data = await state.get_data()
-            selected_date = data.get("fishing_date")
-            # Показываем первую локацию
-            await show_spot(
-                message, spots[0], 0, len(spots), user_coords, state, selected_date
-            )
+            
+            # Обрабатываем запрос
+            await process_search_query(message, state, user_request, processing_msg)
         else:
+            # Показываем ошибку
+            await processing_msg.edit_text(
+                f"❌ {result['error']}. Попробуйте еще раз или отправьте текстовое сообщение."
+            )
+        
+    except Exception as e:
+        logger.error(f"Ошибка при обработке голосового сообщения: {e}")
+        await processing_msg.edit_text(
+            "❌ Произошла ошибка при распознавании речи. Попробуйте отправить текстовое сообщение."
+        )
+
+async def process_search_query(message: Message, state: FSMContext, user_request: str, processing_msg: Message):
+    """
+    Общая функция для обработки поискового запроса (текстового или голосового).
+    """
+    try:
+        ml_client = MLServiceClient(ML_SERVICE_URL)
+        result = await ml_client.search_fishing_spots(
+            user_id=message.from_user.id,
+            query=user_request
+        )
+
+        await processing_msg.delete()
+
+        if result.get("success"):
+            spots = result.get("spots", [])
+            if spots:
+                user_coords = spots[0].get("location_user")
+                # Сохраняем результаты и текущий индекс
+                await state.update_data(
+                    spots=spots,
+                    current_index=0,
+                    user_coordinates=user_coords,
+                    user_query=user_request
+                )
+                await state.set_state(SearchStates.browsing_spots)
+                data = await state.get_data()
+                selected_date = data.get("fishing_date")
+                # Показываем первую локацию
+                await show_spot(
+                    message, spots[0], 0, len(spots), user_coords, state, selected_date
+                )
+            else:
+                await message.answer(
+                    MESSAGES['search']['no_results'],
+                    reply_markup=get_start_keyboard()
+                )
+                await state.clear()
+        else:
+            error_msg = result.get("message", "Неизвестная ошибка")
             await message.answer(
-                MESSAGES['search']['no_results'],
+                MESSAGES['search']['error'].format(error=error_msg),
                 reply_markup=get_start_keyboard()
             )
-    else:
-        error_msg = result.get("message", "Неизвестная ошибка")
+            await state.clear()
+    
+    except Exception as e:
+        logger.error(f"Ошибка при обработке поискового запроса: {e}")
+        try:
+            await processing_msg.delete()
+        except:
+            pass
         await message.answer(
-            MESSAGES['search']['error'].format(error=error_msg),
+            "❌ Произошла ошибка при обработке запроса. Попробуйте еще раз.",
             reply_markup=get_start_keyboard()
         )
         await state.clear()
+
+@search_router.message(F.voice)
+async def handle_unexpected_voice(message: Message, state: FSMContext):
+    """
+    Обработка голосовых сообщений в неожиданных состояниях.
+    """
+    current_state = await state.get_state()
+    if current_state != SearchStates.waiting_for_search_request:
+        voice_hint = " с голосовыми сообщениями" if is_voice_available() else ""
+        await message.answer(
+            f"🎤 Поиск{voice_hint} возможен только после выбора даты.\n"
+            "Нажмите «🎣 Начать поиск мест» для начала поиска."
+        )
