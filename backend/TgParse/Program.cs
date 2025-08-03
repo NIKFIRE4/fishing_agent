@@ -336,9 +336,7 @@ namespace TgParse
                 }
                 var minioUploader = new MinioUploader();
 
-                var imageMinioUrl = await minioUploader.DownloadImageAsync("1b29999565a211f08111162b815825a6_1.jpg");
-                Console.WriteLine(await DetectPersonAsync(imageMinioUrl));
-                Console.WriteLine($"Изображение {imageMinioUrl}");
+                
 
 
                 int maxId = 0;
