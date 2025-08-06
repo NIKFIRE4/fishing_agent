@@ -2,7 +2,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from endpoints.classes_for_endpoint import ImageRequest, MessageRequest
+from endpoints.endpoints_with_backend import fetch_fishing_places
 from my_openrouter_chat import get_important_information
+from calculate_distance.encoder import get_similarity
+from calculate_distance.map import get_route, geocode_name_to_coords
 import uvicorn
 import httpx
 from CV_for_person_detect.YOLO_predict import detect_person
@@ -28,22 +31,13 @@ async def detect_person_endpoint(request: ImageRequest):
 
 @app.get("/places_with_fish")
 async def get_fishing_places():
-    BACKEND_URL = "http://192.168.0.103:8002"
-    
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(BACKEND_URL, timeout=10.0)
-            response.raise_for_status()  # если статус >=400 — бросит exception
-            data = response.json()
-            print(data)
-            return JSONResponse(content=data)
+        data = await fetch_fishing_places()
+        return JSONResponse(content=data)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error: {e}")
     
-    except (httpx.HTTPError, ValueError) as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Ошибка при получении рыбацких мест: {str(e)}"
-        )
-    
+
 @app.post("/get_short_description")
 async def get_short_description(request: MessageRequest):
     try:
@@ -54,8 +48,68 @@ async def get_short_description(request: MessageRequest):
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"get short description failed: {str(e)}")
 
+@app.post("/compare_fishing_places")
+async def compare_fishing_places(request: MessageRequest):
+    try:
+        short_message = get_important_information(request.message)
+        target_names = short_message.get("name_place", [])
+        if not target_names:
+            raise HTTPException(status_code=400, detail="Не указано ни одного места для сравнения")
+        target_name = target_names[0] 
+
+        target_coords = short_message.get("coordinates")
+        if not target_coords:
+            target_coords = await geocode_name_to_coords(target_name)
+
+        fishing_places = await fetch_fishing_places()
+                  
+        for place in fishing_places:
+            name = place.get("name_place", [None])[0]
+            coords = place.get("coordinates", [])
+
+            if not coords:
+                try:
+                    coords = await geocode_name_to_coords(name)
+                except ValueError:
+                    continue
+
+            if get_similarity(target_name, name):
+                short_description = get_important_information(place.get("description", "None") + request.message)
+                return JSONResponse(content={
+                    "new_place": False,
+                    "name_place": place.get("name_place"),
+                    "coordinates": coords,
+                    "short_description": short_description,
+                    "description": place.get("description", "None") + request.message,
+                })
+
+            route = await get_route(start_coord=coords, end_coord=target_coords)
+            if route.get('distance_km') < 2:
+                short_description = get_important_information(place.get("description", "None") + request.message)
+                return JSONResponse(content={
+                    "new_place": False,
+                    "name_place": place.get("name_place"),
+                    "coordinates": coords,
+                    "short_description": short_description,
+                    "description": place.get("description", "None") + request.message,
+                })
+
+        # Создание нового места только если ничего не найдено после всех итераций
+        short_description = get_important_information(request.message)
+        return JSONResponse(content={
+            "new_place": True,
+            "name_place": target_name,
+            "coordinates": target_coords,
+            "short_description": short_description,
+            "description": request.message,
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(

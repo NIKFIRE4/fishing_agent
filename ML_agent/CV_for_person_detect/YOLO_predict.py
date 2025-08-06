@@ -14,3 +14,4 @@ def detect_person(image_base64: str, conf: float = 0.58) -> bool:
     results = model(image_array, classes=[0], conf=conf, save=False, verbose=False)
     has_person = len(results[0].boxes) > 0
     return has_person
+
