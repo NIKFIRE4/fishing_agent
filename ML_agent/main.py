@@ -16,6 +16,10 @@ app = FastAPI(title="Person Detection API", version="1.0.0")
 async def root():
     return {"message": "Person Detection API is running"}
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "FishAgent ML"}
+
 @app.post("/detect-person")
 async def detect_person_endpoint(request: ImageRequest):
     try:
