@@ -1,7 +1,7 @@
 services:
   ml_service:
     env_file:
-       - .env
+       - ./ML_agent/.env
     build:
       context: ./ML_agent
       dockerfile: Dockerfile
@@ -12,11 +12,11 @@ services:
     environment:
       - BACKEND_URL=http://backend_service:80/
       - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
 
   backend_service:
     build:
@@ -37,7 +37,7 @@ services:
 
     depends_on:
       ml_service:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_started
       mc:
