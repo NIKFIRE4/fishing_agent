@@ -37,7 +37,7 @@ services:
 
     depends_on:
       ml_service:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_started
       mc:
