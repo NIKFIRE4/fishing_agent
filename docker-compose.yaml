@@ -10,7 +10,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - BACKEND_URL=http://backend_service:80/
+      - BACKEND_URL=http://parsing_service:80/
       - PYTHONUNBUFFERED=1
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
@@ -18,19 +18,21 @@ services:
     #   timeout: 5s
     #   retries: 3
 
-  backend_service:
+  parsing_service:
+    env_file:
+       - ./backend/TgParse/.env
     build:
       context: ./backend/TgParse
       dockerfile: Dockerfile
-    image: fishing-backend:latest
-    container_name: fishing_backend
+    image: fishing-parsing:latest
+    container_name: fishing_parsing
     environment:
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=admin
-      - MINIO_SECRET_KEY=adminadmin
       - MINIO_BUCKET_NAME=images 
       - MINIO_USE_SSL=false
-      - DB_CONNECTION_STRING=Host=db;Port=5432;Database=FishingAgent;Username=postgres;Password=567438
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
     ports:
       - "8002:80"
 
@@ -64,9 +66,9 @@ services:
     depends_on:
       - minio
     environment:
-      MINIO_SERVER: minio:9000 
-      MINIO_ACCESS_KEY: admin    
-      MINIO_SECRET_KEY: adminadmin    
+      - MINIO_SERVER=minio:9000 
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
     # volumes:
     #   - ./local_images:/images 
     entrypoint: >
@@ -86,9 +88,9 @@ services:
       retries: 5
 
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=567438
-      - POSTGRES_DB=FishingAgent
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -97,8 +99,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - "8080:80"
     depends_on:
