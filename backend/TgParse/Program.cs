@@ -314,30 +314,6 @@ namespace TgParse
             private static async Task RunApplication()
             {
                 Console.WriteLine("Starting application...");
-                var urlka = "https://pic.rutubelist.ru/video/2024-12-03/be/7d/be7d3d890dba06f2004336cbf6668f0d.jpg";
-                var Geting = await GetResponseAsync(urlka);
-                var guting = await GetRequestAsync(urlka);
-                string base64Image = Convert.ToBase64String(guting);
-
-                string objName = "";
-                try
-                {
-                    var uploader = new MinioUploader();
-
-                    // Загружаем в MinIO
-                    var objectName = await uploader.UploadImage(guting, "image/jpeg");
-                    objName = objectName;
-
-                    Console.WriteLine($"Successfully uploade {objectName} to MinIO");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                }
-                var minioUploader = new MinioUploader();
-
-                
-
 
                 int maxId = 0;
                 string channelName = "rybalka_spb_lenoblasti";

@@ -24,3 +24,5 @@
 /backend/TgParse/bin/Debug/net9.0/Microsoft.Extensions.Logging.dll
 /backend/TgParse/bin/Debug/net9.0/Microsoft.Extensions.Options.dll
 /backend/TgParse/bin/Debug/net9.0/Microsoft.Extensions.Primitives.dll
+/backend/.env
+/backend/TgParse/.env
