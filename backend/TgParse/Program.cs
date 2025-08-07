@@ -174,7 +174,8 @@ namespace TgParse
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-                ?? "Host=localhost;Port=5432;Database=FishingAgent;Username=postgres;Password=567438";
+                ?? "${DB_CONNECTION_STRING}"
+                ;
 
                 optionsBuilder.UseNpgsql(connectionString);
             }
