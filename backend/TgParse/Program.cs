@@ -294,9 +294,9 @@ namespace TgParse
         {
             switch (what)
             {
-                case "api_id": return "27198288";
-                case "api_hash": return "1c54edb1a06e47b9f503d7120d9ba885";
-                case "phone_number": return "+79340757556";
+                case "api_id": return "TELEGRAM_API_ID";
+                case "api_hash": return "TELEGRAM_API_HASH";
+                case "phone_number": return "TELEGRAM_PHONE_NUMBER";
                 case "verification_code": Console.WriteLine("Введите код: ");
                     return Console.ReadLine();
                 case "session_pathname": return "/app/wtelegram/wtelegram.session";

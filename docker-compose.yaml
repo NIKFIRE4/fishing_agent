@@ -20,7 +20,7 @@ services:
 
   parsing_service:
     env_file:
-       - ./backend/TgParse/.env
+       - ./backend/.env
     build:
       context: ./backend/TgParse
       dockerfile: Dockerfile
@@ -35,9 +35,9 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
-      - TELEGRAM_API_ID=27198288
-      - TELEGRAM_API_HASH=1c54edb1a06e47b9f503d7120d9ba885
-      - TELEGRAM_PHONE_NUMBER=+79340757556
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_PHONE_NUMBER=${TELEGRAM_PHONE_NUMBER}
       
     ports:
       - "8002:80"
