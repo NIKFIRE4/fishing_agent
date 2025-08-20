@@ -10,8 +10,8 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - BACKEND_URL=http://parsing_service:80/
-      - PYTHONUNBUFFERED=1
+    - BACKEND_URL=http://parsing_service:80/
+    - PYTHONUNBUFFERED=1
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
     #   interval: 30s
@@ -26,6 +26,8 @@ services:
       dockerfile: Dockerfile
     image: fishing-parsing:latest
     container_name: fishing_parsing
+    tty: true
+    stdin_open: true
     environment:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_BUCKET_NAME=images 
@@ -33,10 +35,15 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+      - TELEGRAM_API_ID=27198288
+      - TELEGRAM_API_HASH=1c54edb1a06e47b9f503d7120d9ba885
+      - TELEGRAM_PHONE_NUMBER=+79340757556
+      
     ports:
       - "8002:80"
 
-
+    volumes:
+      - ./wtelegram:/app/wtelegram
     depends_on:
       ml_service:
         condition: service_started

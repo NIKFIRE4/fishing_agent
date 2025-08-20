@@ -27,3 +27,4 @@
 /backend/.env
 /backend/TgParse/.env
 /backend/TgParse/WTelegram
+/wtelegram

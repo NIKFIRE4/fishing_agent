@@ -9,7 +9,7 @@ using TgParse;
 
 namespace TgParse.Migrations
 {
-    [DbContext(typeof(MinioUploader.ApplicationContext))]
+    [DbContext(typeof(TgParse.ApplicationContext))]
     partial class ApplicationContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
