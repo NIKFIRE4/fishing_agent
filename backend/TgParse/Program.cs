@@ -1,31 +1,25 @@
 ﻿using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
-using System;
 using Minio;
 using Minio.DataModel.Args;
-using System.Drawing;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Xml;
 using System.Text.Json;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using System.Reflection.Metadata;
-using System.Diagnostics;
-using Microsoft.VisualBasic;
-using System.Net.Http.Json;
 using System.Text;
-using Docker.DotNet.Models;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Minio.Exceptions;
+using WTelegram;
+using TL;
+using System.Reactive;
+using static WTelegram.Client;
 using System;
-using System.IO;
+using Microsoft.Extensions.Options;
+using System.Net.Mime;
+using System.Runtime.CompilerServices;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Security.AccessControl;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
+
+
 
 namespace TgParse
 {
@@ -62,19 +56,8 @@ namespace TgParse
                 .Build();
         }
 
-        public async Task<string> UploadImage(byte[] imageData, string contentType = "image/jpeg")
-        {
-            string uniqueId = Guid.NewGuid().ToString();
-            string extension = contentType switch
-            {
-                "image/jpeg" => ".jpg",
-                "image/png" => ".png",
-                "image/gif" => ".gif",
-                _ => ".bin"
-            };
-
-            string objectName = $"{uniqueId}{extension}";
-
+        public async Task UploadImage(byte[] imageData, string objectName, string contentType = "image/jpeg")
+        {            
             using var stream = new MemoryStream(imageData);
             stream.Position = 0; // КРИТИЧЕСКИ ВАЖНО: сброс позиции потока!
 
@@ -97,7 +80,7 @@ namespace TgParse
                     .WithBucket(_bucketName)
                     .WithObject(objectName)
                     .WithStreamData(stream)
-                    .WithObjectSize(stream.Length) // Используем актуальный размер
+                    .WithObjectSize(stream.Length)
                     .WithContentType(contentType);
 
                 await _minio.PutObjectAsync(putObjectArgs);
@@ -105,14 +88,11 @@ namespace TgParse
                 // Проверяем, что файл действительно загружен
                 var statArgs = new StatObjectArgs()
                     .WithBucket(_bucketName)
-                    .WithObject(objectName);
-
-                return objectName;
+                    .WithObject(objectName);                
             }
             catch (MinioException e)
             {
-                Console.WriteLine($"MinIO Error: {e.Message}");
-                return null;
+                Console.WriteLine($"MinIO Error: {e.Message}");               
             }
         }
 
@@ -122,13 +102,12 @@ namespace TgParse
             {
                 using var memoryStream = new MemoryStream();
 
-                // Используем CallbackStream вместо WithFile (как в документации)
                 var args = new GetObjectArgs()
                     .WithBucket(_bucketName)
                     .WithObject(objectName)
                     .WithCallbackStream(stream =>
                     {
-                        // Копируем данные из MinIO в MemoryStream (синхронно, но безопасно)
+                        // Копируем данные из MinIO в MemoryStream 
                         stream.CopyTo(memoryStream);
                     });
 
@@ -146,185 +125,276 @@ namespace TgParse
                     ex
                 );
             }
+        }       
+    }
+    public class TgMessages
+    {
+        public int Id { get; set; }
+        public int MessageId { get; set; }
+        public string? MessageText { get; set; }
+        public string? СhannelUrl { get; set; }
+        public List<TgPhotos>? Photos { get; set; } = new List<TgPhotos>();
+    }
+
+    public class TgPhotos
+    {
+        public int Id { get; set; }
+        public string? PhotoUrl { get; set; }
+        public int MessageId { get; set; }
+
+        public TgMessages? Message { get; set; }
+    }
+
+    public class ApplicationContext : DbContext
+    {
+        public DbSet<TgMessages> TgMessages { get; set; }
+        public DbSet<TgPhotos> TgPhotos { get; set; }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+            ?? "${DB_CONNECTION_STRING}"
+            ;
+
+            optionsBuilder.UseNpgsql(connectionString);
         }
 
-        public class TgMessages
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            public int Id { get; set; }
-            public int MessageId { get; set; }
-            public string? MessageText { get; set; }
-            public string? СhannelUrl { get; set; }
-            public List<TgPhotos>? Photos { get; set; } = new List<TgPhotos>();
+            modelBuilder.Entity<TgMessages>()
+                .HasMany(m => m.Photos)
+                .WithOne(p => p.Message)
+                .HasForeignKey(p => p.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TgMessages>()
+            .HasIndex(m => m.MessageId)
+            .IsUnique();
+        }
+    }
+
+    class Program
+    {
+        public static async Task<byte[]> GetRequestAsync(string url)
+        {
+            using (var client = new HttpClient())
+            {
+                var response = await client.GetAsync(url);
+                return await response.Content.ReadAsByteArrayAsync();
+            }
         }
 
-        public class TgPhotos
+        static public async Task<MultipartFormDataContent> GetResponseAsync(string url)
         {
-            public int Id { get; set; }
-            public string? PhotoUrl { get; set; }
-            public int MessageId { get; set; }
+            byte[] imageBytes;
+            using (var client = new HttpClient())
+            {
+                var response = await client.GetAsync(url);
+                imageBytes = await response.Content.ReadAsByteArrayAsync();
+            }
+            var content = new MultipartFormDataContent();
 
-            public TgMessages? Message { get; set; }
+            // Создаем контент-часть с изображением
+            var imageContent = new ByteArrayContent(imageBytes);
+            imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
+
+            // Добавляем в multipart контейнер        
+            content.Add(imageContent, "image", "image");
+            return content;
         }
 
-        public class ApplicationContext : DbContext
+        public static async Task<bool> DetectPersonAsync(byte[] byteImage)
         {
-            public DbSet<TgMessages> TgMessages { get; set; }
-            public DbSet<TgPhotos> TgPhotos { get; set; }
-
-            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            string base64Image = Convert.ToBase64String(byteImage);
+            var jsonObject = new
             {
-                var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-                ?? "${DB_CONNECTION_STRING}"
-                ;
+                image = base64Image
+            };
+            // Сериализуем в JSON
+            string json = JsonSerializer.Serialize(jsonObject);
+            using HttpClient client = new HttpClient();
+            client.BaseAddress = new Uri("http://ml_service:8001/");
 
-                optionsBuilder.UseNpgsql(connectionString);
-            }
+            // Сериализация данных в JSON
 
-            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Отправка POST-запроса
+            HttpResponseMessage response = await client.PostAsync("detect-person", content);
+
+            // Чтение ответа
+            if (response.IsSuccessStatusCode)
             {
-                modelBuilder.Entity<TgMessages>()
-                    .HasMany(m => m.Photos)
-                    .WithOne(p => p.Message)
-                    .HasForeignKey(p => p.MessageId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                string responseBody = await response.Content.ReadAsStringAsync();
 
-                modelBuilder.Entity<TgMessages>()
-                .HasIndex(m => m.MessageId)
-                .IsUnique();
+                JsonDocument doc = JsonDocument.Parse(responseBody);
+                return doc.RootElement.GetProperty("person_detected").GetBoolean();
+
             }
-
-
+            else
+            {
+                Console.WriteLine($"Ошибка: {response.StatusCode}");
+                return false;
+            }
         }
 
-        class Program
+        public static async Task<HtmlDocument?> TakeHtml(string url)
         {
-            public static async Task<byte[]> GetRequestAsync(string url)
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            try
             {
-                using (var client = new HttpClient())
+                // Получаем HTML-код страницы
+                string htmlContent = await httpClient.GetStringAsync(url);
+
+                var htmlDoc = new HtmlDocument();
+                htmlDoc.LoadHtml(htmlContent);
+                return htmlDoc;
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"Ошибка при запросе: {ex.Message}");
+                return null;
+            }
+        }                               
+
+        public static HtmlNode? TakeText(HtmlDocument htmlDoc)
+        {
+            var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
+            return metaNode;
+        }
+
+        public static HtmlNode? TakeImage(HtmlDocument htmlDoc)
+        {
+            var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
+            return metaNode;
+        }
+
+        private static void ConfigureServices(IServiceCollection services)
+        {
+            services.AddDbContext<ApplicationContext>();
+        }
+
+        private static void ApplyMigrations(ApplicationContext context)
+        {
+            try
+            {
+                Console.WriteLine("Applying database migrations...");
+                context.Database.Migrate();
+                Console.WriteLine("Migrations applied successfully!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error applying migrations: {ex.Message}");
+                Environment.Exit(1);
+            }
+        }
+
+        static string? Config(string what)
+        {
+            switch (what)
+            {
+                case "api_id": return "27198288";
+                case "api_hash": return "1c54edb1a06e47b9f503d7120d9ba885";
+                case "phone_number": return "+79340757556";
+                case "verification_code": Console.WriteLine("Введите код: ");
+                    return Console.ReadLine();
+                case "session_pathname": return "/app/wtelegram/wtelegram.session";
+                case "server": return "149.154.167.50:443";
+                default: return null;
+            }
+        }
+
+        static async Task<List<(string Type, byte[] Data)>> ProcessMessageMedia(WTelegram.Client client, Message msg)
+        {
+            var images = new List<(string Type, byte[] Data)>();
+            try
+            {
+                if (msg.media is MessageMediaPhoto { photo: Photo photo })
                 {
-                    var response = await client.GetAsync(url);
-                    return await response.Content.ReadAsByteArrayAsync();
+                    using var stream = new MemoryStream();
+                    await client.DownloadFileAsync(photo, stream);
+                    images.Add(("Photo", stream.ToArray()));
+                }
+                else if (msg.media is MessageMediaDocument { document: Document document })
+                {
+                    if (document.mime_type.StartsWith("image/"))
+                    {
+                        using var stream = new MemoryStream();
+                        await client.DownloadFileAsync(document, stream);
+                        images.Add(("Document", stream.ToArray()));
+                    }
                 }
             }
-
-            static public async Task<MultipartFormDataContent> GetResponseAsync(string url)
+            catch (Exception ex)
             {
-                byte[] imageBytes;
-                using (var client = new HttpClient())
-                {
-                    var response = await client.GetAsync(url);
-                    imageBytes = await response.Content.ReadAsByteArrayAsync();
-                }
-                var content = new MultipartFormDataContent();
-
-                // Создаем контент-часть с изображением
-                var imageContent = new ByteArrayContent(imageBytes);
-                imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
-
-                // Добавляем в multipart контейнер        
-                content.Add(imageContent, "image", "image");
-                return content;
+                Console.WriteLine($"[ERROR] Ошибка при обработке медиа для сообщения ID {msg.id}: {ex.Message}");
             }
+            return images;
+        }
 
-            public static async Task<bool> DetectPersonAsync(byte[] byteImage)
+        private static async Task RunApplication()
+        {
+            Console.WriteLine("Starting application...");
+            using var client = new WTelegram.Client(Config);
+
+            int maxId = 0;
+            var offset_id = 100;
+            string channelName = "rybalka_spb_lenoblasti";
+            string aboutUrl = $"https://t.me/{channelName}";
+            try
             {
-                string base64Image = Convert.ToBase64String(byteImage);
-                var jsonObject = new
+                // Попытка входа
+                await client.LoginUserIfNeeded();
+                Console.WriteLine("Авторизация успешна!");
+                var resolved = await client.Messages_GetAllChats();
+                var channel = resolved.chats.Values.FirstOrDefault(c => c.MainUsername == channelName);
+                if (channel == null)
                 {
-                    image = base64Image
-                };
-                // Сериализуем в JSON
-                string json = JsonSerializer.Serialize(jsonObject);
-                using HttpClient client = new HttpClient();
-                client.BaseAddress = new Uri("http://ml_service:8001/");
-
-                // Сериализация данных в JSON
-
-                HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                // Отправка POST-запроса
-                HttpResponseMessage response = await client.PostAsync("detect-person", content);
-
-                // Чтение ответа
-                if (response.IsSuccessStatusCode)
-                {
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
-                    JsonDocument doc = JsonDocument.Parse(responseBody);
-                    return doc.RootElement.GetProperty("person_detected").GetBoolean();
-
+                    Console.WriteLine($"[DEBUG] Канал {channelName} не найден.");
+                    return;
                 }
-                else
-                {
-                    Console.WriteLine($"Ошибка: {response.StatusCode}");
-                    return false;
-                }
-            }
+                Console.WriteLine($"[DEBUG] Канал {channelName} найден: ID={channel.ID}");
 
-            public static async Task<HtmlDocument?> TakeHtml(string url)
-            {
                 using var httpClient = new HttpClient();
-                try
-                {
-                    // Получаем HTML-код страницы
-                    string htmlContent = await httpClient.GetStringAsync(url);
-
-                    var htmlDoc = new HtmlDocument();
-                    htmlDoc.LoadHtml(htmlContent);
-                    return htmlDoc;
-                }
-                catch (HttpRequestException ex)
-                {
-                    Console.WriteLine($"Ошибка при запросе: {ex.Message}");
-                    return null;
-                }
-            }
-
-            public static HtmlNode? TakeText(HtmlDocument htmlDoc)
-            {
-                var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
-                return metaNode;
-            }
-
-            public static HtmlNode? TakeImage(HtmlDocument htmlDoc)
-            {
-                var metaNode = htmlDoc.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
-                return metaNode;
-            }
-
-            private static void ConfigureServices(IServiceCollection services)
-            {
-                services.AddDbContext<ApplicationContext>();
-            }
-
-            private static void ApplyMigrations(ApplicationContext context)
-            {
-                try
-                {
-                    Console.WriteLine("Applying database migrations...");
-                    context.Database.Migrate();
-                    Console.WriteLine("Migrations applied successfully!");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error applying migrations: {ex.Message}");
-                    Environment.Exit(1);
-                }
-            }
-
-            private static async Task RunApplication()
-            {
-                Console.WriteLine("Starting application...");
-
-                int maxId = 0;
-                string channelName = "rybalka_spb_lenoblasti";
-                string aboutUrl = $"https://t.me/{channelName}";
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
                 var aboutHtml = await TakeHtml(aboutUrl);
                 var abouta = TakeText(aboutHtml);
-                using var httpClnt = new HttpClient();
+
+                if (abouta == null || abouta.Attributes["content"] == null)
+                {
+                    Console.WriteLine("Ошибка: Не удалось получить описание канала.");
+                    return;
+                }
+
                 try
                 {
-                    string htmlAll = await httpClnt.GetStringAsync($"https://t.me/s/{channelName}");
+                    using (var context = new ApplicationContext())
+                    {
+                        // Получение последнего ID, сортировка по Id
+                        var lastMessage = context.TgMessages
+                            .OrderByDescending(m => m.MessageId)
+                            .FirstOrDefault();
+
+                        if (lastMessage != null)
+                        {
+                            Console.WriteLine($"Последний ID сообщения в базе: {lastMessage.MessageId}");
+                            offset_id = lastMessage.MessageId;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Сообщения не найдены.");
+                        }
+                    }
+                }
+                catch
+                {
+
+                }
+
+                try
+                {                                                                       
+                    string htmlAll = await httpClient.GetStringAsync($"https://t.me/s/{channelName}");
                     var htmlDocs = new HtmlDocument();
                     htmlDocs.LoadHtml(htmlAll);
 
@@ -350,160 +420,311 @@ namespace TgParse
                         }
                     }
 
-                    Console.WriteLine($"Максимальный ID: {maxId}");
-
+                    Console.WriteLine($"Максимальный ID: {maxId}");                                                               
                 }
                 catch (HttpRequestException ex)
                 {
-                    Console.WriteLine($"Ошибка при запросе: {ex.Message}");
+                    Console.WriteLine($"Ошибка при получении максимального ID: {ex.Message}");
                 }
-
-                var imageUrls = new List<string>();
-                var imageDbUrls = new List<string>();
-                string? messageTextDb = "";
-
-                for (int messageId = 1; messageId < maxId; messageId++)
+          
+                var messageImages = new Dictionary<long, List<(string Type, byte[] Data)>>();                
+                var allMessages = new List<Message>();                
+                while (offset_id < maxId+100)
                 {
+                    Console.WriteLine($"ID:::{offset_id}");
+                    var messag = await client.Messages_GetHistory(channel, offset_id, limit: 100);
 
-                    string url = $"https://t.me/{channelName}/{messageId}";
-                    var metaNode = await TakeHtml(url);
-                    if (metaNode == null) continue;
-                    var metaText = TakeText(metaNode);
-                    var metaImage = TakeImage(metaNode).Attributes["content"].Value.Trim();
-                    var byteImage = await GetRequestAsync(metaImage);
-
-                    //var metaImage = await GetRequestAsync(metaImage);
-
-                    if (metaText != null && metaText.Attributes["content"] != null)
+                    if (messag.Messages.Length == 0)
                     {
-                        string contentValue = metaText.Attributes["content"].Value;
+                        Console.WriteLine("Сообщения закончились.");
+                        break;
 
-                        // Условия для текстовых сообщений
-                        if (contentValue != abouta.Attributes["content"].Value &&
-                            contentValue != "" &&
-                            !contentValue.Contains("#реклама") &&
-                            contentValue.Contains("#"))
+                    }
+                    var messageBatch = messag.Messages.OfType<Message>().ToList();                    
+                    allMessages.AddRange(messageBatch);
+                    offset_id += 100;
+
+                    foreach (var msg in messageBatch)
+                    {
+                        var imagu = await ProcessMessageMedia(client, msg);
+                        if (imagu.Any())
                         {
-                            // Выводим накопленные изображения (если есть)
-                            if (imageUrls.Count > 0)
+                            messageImages[msg.id] = imagu;
+                        }
+                    }
+
+                    await Task.Delay(500);
+                }
+                Console.WriteLine($"Загружено {allMessages.Count} сообщений...");
+
+                var imageDbData = new Dictionary<string, byte[]>();
+                var messageDbId = 0;
+                var messageDbText = "";                
+                foreach (var msgBase in allMessages.OrderBy(m => m.id))
+                {
+                    if (msgBase is Message msg)
+                    {
+                        string messageText = msgBase.message ?? "<пустое сообщение>";
+                        if (messageText != null && !messageText.Contains("#реклама") && messageText != "")
+                        {
+                            if (messageDbText != "")
                             {
-                                foreach (var imageUrl in imageUrls)
+                                Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageDbData.Count}");
+                                
+                                using (ApplicationContext db = new())
                                 {
-                                    Console.WriteLine(imageUrl);
-
-                                }
-                                if (messageTextDb != "")
-                                {
-
-
-
                                     var message = new TgMessages
                                     {
-
-                                        MessageText = messageTextDb,
-                                        MessageId = messageId,
+                                        MessageText = messageDbText,
+                                        MessageId = messageDbId,
                                         СhannelUrl = channelName,
-                                    };
-                                    foreach (var imageDbUrl in imageDbUrls)
+                                    };                                    
+                                    bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
+                                    if (exists) 
                                     {
-                                        message.Photos.Add(new TgPhotos { PhotoUrl = imageDbUrl });
+                                        Console.WriteLine($"Сообщение {message.MessageId} уже в базе");
                                     }
-                                    using (ApplicationContext db = new())
+                                    else
                                     {
+                                        foreach (var imageDB in imageDbData)
+                                        {
+                                            message.Photos?.Add(new TgPhotos { PhotoUrl = imageDB.Key });
+                                            var uploader = new MinioUploader();
+                                            await uploader.UploadImage(imageDB.Value, imageDB.Key, "image/jpeg");
+                                        }
                                         db.TgMessages.AddRange(message);
                                         db.SaveChanges();
-                                    }
-
-
-
+                                        Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
+                                    }                                        
                                 }
 
-                                Console.WriteLine();
-                                imageUrls.Clear();
-                                imageDbUrls.Clear();
+                                imageDbData.Clear();
+                                
                             }
-                            // Обработка и вывод текста
-                            string messageText = contentValue.Trim();
-                            messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
+                            
+                            string mess = messageText.Trim();
+                            messageText = Regex.Replace(mess, @"\p{Cs}|\p{So}", "");
                             messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
-                            messageTextDb = messageText;
-
-                            Console.WriteLine($"ID: {messageId}; Текст сообщения:");
-                            Console.WriteLine(messageText);
-
-                            // Выводим изображение текущего сообщения
-                            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
-                            {
-                                try
-                                {
-
-                                    var uploader = new MinioUploader();
-                                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
-                                    imageDbUrls.Add(objectName);
-                                    Console.WriteLine($"Image: {objectName}");
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"Error: {ex.Message}");
-                                }
-
-
-
-                            }
-                            // Обработка пустых сообщений (только изображения)
-
+                            Console.WriteLine($"Сообщение ID {msgBase.id}: {messageText}");
+                            messageDbText = messageText;
+                            messageDbId = msgBase.id;
                         }
-                        else if (contentValue == "")
+
+                        if (messageImages.ContainsKey(msgBase.id))
                         {
-                            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
+                            var imagi = messageImages[msgBase.id];
+                            for (int i = 0; i < imagi.Count; i++)
                             {
-                                try
+                                var (type, data) = imagi[i];
+                                if (!await DetectPersonAsync(data))
                                 {
-                                    var uploader = new MinioUploader();
-                                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
-                                    imageUrls.Add(objectName);
-                                    imageDbUrls.Add(objectName);
+                                    string uniqueId = Guid.NewGuid().ToString("N");
+                                    var contentType = "image/jpeg";
+                                    string extension = contentType switch
+                                    {
+                                        "image/jpeg" => ".jpg",
+                                        "image/png" => ".png",
+                                        "image/gif" => ".gif",
+                                        _ => ".bin"
+                                    };
 
+                                    string objectName = $"tg{messageDbId}_{uniqueId}{extension}";
+                                    imageDbData[objectName] = data;                                    
                                 }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"Error: {ex.Message}");
-                                }
+                                    
 
                             }
+                        }                                                                                            
+                    }                    
+                }
+
+                if (messageDbText != "")
+                {
+                    Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageDbData.Count}");
+
+                    using (ApplicationContext db = new())
+                    {
+                        var message = new TgMessages
+                        {
+                            MessageText = messageDbText,
+                            MessageId = messageDbId,
+                            СhannelUrl = channelName,
+                        };
+                        bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
+                        if (exists)
+                        {
+                            Console.WriteLine($"Сообщение {message.MessageId} уже в базе");
+                        }
+                        else
+                        {
+                            foreach (var imageDB in imageDbData)
+                            {
+                                message.Photos?.Add(new TgPhotos { PhotoUrl = imageDB.Key });
+                                var uploader = new MinioUploader();
+                                await uploader.UploadImage(imageDB.Value, imageDB.Key, "image/jpeg");
+                            }
+                            db.TgMessages.AddRange(message);
+                            db.SaveChanges();
+                            Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
                         }
                     }
 
+                    imageDbData.Clear();
 
                 }
 
-                // Вывод оставшихся изображений после цикла
-                if (imageUrls.Count > 0)
-                {
-                    foreach (var imageUrl in imageUrls)
-                    {
-                        Console.WriteLine(imageUrl);
-                    }
-                    Console.WriteLine();
-                }
+                //var imageUrls = new List<string>();
+                //var imageDbUrls = new List<string>();
+                //string? messageTextDb = "";
 
+                //for (int messageId = 16; messageId < maxId; messageId++)
+                //{
+                //    await Task.Delay(500);
+                //    string url = $"https://t.me/{channelName}/{messageId}";                                       
+                //    var metaNode = await TakeHtml(url);
+                //    if (metaNode == null)
+                //    {
+                //        Console.WriteLine($"[DEBUG] Сообщение {messageId}: HTML не получен.");
+                //        continue;
+                //    }
+                //    var metaText = TakeText(metaNode);
+
+                //    byte[]? byteImage = null;                    
+                //    var metaImage = TakeImage(metaNode)?.Attributes["src"]?.Value.Trim();
+                //    byteImage = await GetRequestAsync(metaImage);
+
+                //    //var metaImage = await GetRequestAsync(metaImage);
+
+                //    if (metaText != null && metaText.Attributes["content"] != null)
+                //    {
+                //        string contentValue = metaText.Attributes["content"].Value;
+
+                //        // Условия для текстовых сообщений
+                //        if (contentValue != abouta.Attributes["content"].Value &&
+                //            contentValue != "" &&
+                //            !contentValue.Contains("#реклама") &&
+                //            contentValue.Contains("#"))
+                //        {
+                //            // Выводим накопленные изображения (если есть)
+                //            if (imageUrls.Count > 0)
+                //            {
+                //                foreach (var imageUrl in imageUrls)
+                //                {
+                //                    Console.WriteLine(imageUrl);
+
+                //                }
+                //                if (messageTextDb != "")
+                //                {
+                //                    var message = new TgMessages
+                //                    {
+
+                //                        MessageText = messageTextDb,
+                //                        MessageId = messageId,
+                //                        СhannelUrl = channelName,
+                //                    };
+                //                    foreach (var imageDbUrli in imageDbUrls)
+                //                    {
+                //                        message.Photos?.Add(new TgPhotos { PhotoUrl = imageDbUrli });
+                //                    }
+                //                    using (ApplicationContext db = new())
+                //                    {
+                //                        db.TgMessages.AddRange(message);
+                //                        db.SaveChanges();
+                //                    }
+
+
+
+                //                }
+
+                //                Console.WriteLine();
+                //                imageUrls.Clear();
+                //                imageDbUrls.Clear();
+                //            }
+                //            // Обработка и вывод текста
+                //            string messageText = contentValue.Trim();
+                //            messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
+                //            messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+                //            messageTextDb = messageText;
+
+                //            Console.WriteLine($"ID: {messageId}; Текст сообщения:");
+                //            Console.WriteLine(messageText);
+
+                //            // Выводим изображение текущего сообщения
+                //            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
+                //            {
+                //                try
+                //                {
+
+                //                    var uploader = new MinioUploader();
+                //                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                //                    imageDbUrls.Add(objectName);
+                //                    Console.WriteLine($"Image: {objectName}");
+                //                }
+                //                catch (Exception ex)
+                //                {
+                //                    Console.WriteLine($"Error: {ex.Message}");
+                //                }
+
+
+
+                //            }
+                //            // Обработка пустых сообщений (только изображения)
+
+                //        }
+                //        else if (contentValue == "")
+                //        {
+                //            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
+                //            {
+                //                try
+                //                {
+                //                    var uploader = new MinioUploader();
+                //                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                //                    imageUrls.Add(objectName);
+                //                    imageDbUrls.Add(objectName);
+
+                //                }
+                //                catch (Exception ex)
+                //                {
+                //                    Console.WriteLine($"Error: {ex.Message}");
+                //                }
+
+                //            }
+                //        }
+                //    }
+
+
+                //}
+
+                //// Вывод оставшихся изображений после цикла
+                //if (imageUrls.Count > 0)
+                //{
+                //    foreach (var imageUrl in imageUrls)
+                //    {
+                //        Console.WriteLine(imageUrl);
+                //    }
+                //    Console.WriteLine();
+                //}
 
             }
-
-            static async Task Main(string[] args)
+            catch (Exception ex)
             {
-                var serviceCollection = new ServiceCollection();
-                ConfigureServices(serviceCollection);
-                var serviceProvider = serviceCollection.BuildServiceProvider();
-
-                using (var scope = serviceProvider.CreateScope())
-                {
-                    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-                    ApplyMigrations(context);
-                }
-
-                await RunApplication();
+                Console.WriteLine($"[DEBUG] Ошибка при авторизации или работе с клиентом: {ex.Message}");
             }
         }
-    }
+
+        static async Task Main(string[] args)
+        {
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
+
+            using (var scope = serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+                ApplyMigrations(context);
+            }
+
+            await RunApplication();
+        }
+    } 
 }
