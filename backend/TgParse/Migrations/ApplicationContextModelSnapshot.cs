@@ -4,13 +4,12 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TgParse;
-using static TgParse.MinioUploader;
 
 #nullable disable
 
 namespace TgParse.Migrations
 {
-    [DbContext(typeof(ApplicationContext))]
+    [DbContext(typeof(TgParse.ApplicationContext))]
     partial class ApplicationContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
@@ -22,7 +21,7 @@ namespace TgParse.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("TgParse.TgMessages", b =>
+            modelBuilder.Entity("TgParse.MinioUploader+TgMessages", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -47,7 +46,7 @@ namespace TgParse.Migrations
                     b.ToTable("TgMessages");
                 });
 
-            modelBuilder.Entity("TgParse.TgPhotos", b =>
+            modelBuilder.Entity("TgParse.MinioUploader+TgPhotos", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -68,9 +67,9 @@ namespace TgParse.Migrations
                     b.ToTable("TgPhotos");
                 });
 
-            modelBuilder.Entity("TgParse.TgPhotos", b =>
+            modelBuilder.Entity("TgParse.MinioUploader+TgPhotos", b =>
                 {
-                    b.HasOne("TgParse.TgMessages", "Message")
+                    b.HasOne("TgParse.MinioUploader+TgMessages", "Message")
                         .WithMany("Photos")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -79,7 +78,7 @@ namespace TgParse.Migrations
                     b.Navigation("Message");
                 });
 
-            modelBuilder.Entity("TgParse.TgMessages", b =>
+            modelBuilder.Entity("TgParse.MinioUploader+TgMessages", b =>
                 {
                     b.Navigation("Photos");
                 });
