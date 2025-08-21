@@ -305,16 +305,16 @@ namespace TgParse
             }
         }
 
-        static async Task<List<(string Type, byte[] Data)>> ProcessMessageMedia(WTelegram.Client client, Message msg)
+        static async Task<List<byte[]>> ProcessMessageMedia(WTelegram.Client client, Message msg)
         {
-            var images = new List<(string Type, byte[] Data)>();
+            var images = new List<byte[]>();
             try
             {
                 if (msg.media is MessageMediaPhoto { photo: Photo photo })
                 {
                     using var stream = new MemoryStream();
                     await client.DownloadFileAsync(photo, stream);
-                    images.Add(("Photo", stream.ToArray()));
+                    images.Add(stream.ToArray());
                 }
                 else if (msg.media is MessageMediaDocument { document: Document document })
                 {
@@ -322,7 +322,7 @@ namespace TgParse
                     {
                         using var stream = new MemoryStream();
                         await client.DownloadFileAsync(document, stream);
-                        images.Add(("Document", stream.ToArray()));
+                        images.Add(stream.ToArray());
                     }
                 }
             }
@@ -331,6 +331,38 @@ namespace TgParse
                 Console.WriteLine($"[ERROR] Ошибка при обработке медиа для сообщения ID {msg.id}: {ex.Message}");
             }
             return images;
+        }
+
+        private static async Task SaveMessageToDb(int messageId, string messageText, Dictionary<string, byte[]> imageData, string channelName)
+        {
+            Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageData.Count}");
+
+            using (ApplicationContext db = new())
+            {
+                var message = new TgMessages
+                {
+                    MessageText = messageText,
+                    MessageId = messageId,
+                    СhannelUrl = channelName,
+                };
+                bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
+                if (exists)
+                {
+                    Console.WriteLine($"Сообщение {message.MessageId} уже в базе");
+                }
+                else
+                {
+                    foreach (var imageDB in imageData)
+                    {
+                        message.Photos?.Add(new TgPhotos { PhotoUrl = imageDB.Key });
+                        var uploader = new MinioUploader();
+                        await uploader.UploadImage(imageDB.Value, imageDB.Key, "image/jpeg");
+                    }
+                    db.TgMessages.AddRange(message);
+                    db.SaveChanges();
+                    Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
+                }
+            }
         }
 
         private static async Task RunApplication()
@@ -379,7 +411,7 @@ namespace TgParse
                         if (lastMessage != null)
                         {
                             Console.WriteLine($"Последний ID сообщения в базе: {lastMessage.MessageId}");
-                            offset_id = lastMessage.MessageId;
+                            offset_id = lastMessage.MessageId + 101;
                         }
                         else
                         {
@@ -387,13 +419,13 @@ namespace TgParse
                         }
                     }
                 }
-                catch
+                catch(HttpRequestException ex)
                 {
-
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
 
                 try
-                {                                                                       
+                {
                     string htmlAll = await httpClient.GetStringAsync($"https://t.me/s/{channelName}");
                     var htmlDocs = new HtmlDocument();
                     htmlDocs.LoadHtml(htmlAll);
@@ -420,14 +452,17 @@ namespace TgParse
                         }
                     }
 
-                    Console.WriteLine($"Максимальный ID: {maxId}");                                                               
+                    Console.WriteLine($"Максимальный ID: {maxId}");
                 }
                 catch (HttpRequestException ex)
                 {
                     Console.WriteLine($"Ошибка при получении максимального ID: {ex.Message}");
                 }
-          
-                var messageImages = new Dictionary<long, List<(string Type, byte[] Data)>>();                
+
+                var imageDbData = new Dictionary<string, byte[]>();
+                var messageDbId = 0;
+                var messageDbText = "";
+                var messageImages = new Dictionary<long, List<byte[]>>();                
                 var allMessages = new List<Message>();                
                 while (offset_id < maxId+100)
                 {
@@ -452,123 +487,66 @@ namespace TgParse
                             messageImages[msg.id] = imagu;
                         }
                     }
+                    
+                    Console.WriteLine($"Загружено {allMessages.Count} сообщений...");
 
+                    
+                    foreach (var msgBase in allMessages.OrderBy(m => m.id))
+                    {
+                        if (msgBase is Message msg)
+                        {
+                            string messageText = msgBase.message ?? "<пустое сообщение>";
+                            if (messageText != null && !messageText.Contains("#реклама") && messageText != "")
+                            {
+                                if (messageDbText != "")
+                                {
+                                    await SaveMessageToDb(messageDbId, messageDbText, imageDbData, channelName);
+                                    imageDbData.Clear();
+
+                                }
+
+                                string mess = messageText.Trim();
+                                messageText = Regex.Replace(mess, @"\p{Cs}|\p{So}", "");
+                                messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+                                Console.WriteLine($"Сообщение ID {msgBase.id}: {messageText}");
+                                messageDbText = messageText;
+                                messageDbId = msgBase.id;
+                            }
+
+                            if (messageImages.ContainsKey(msgBase.id))
+                            {
+                                var imagi = messageImages[msgBase.id];
+                                for (int i = 0; i < imagi.Count; i++)
+                                {
+                                    var data = imagi[i];
+                                    if (!await DetectPersonAsync(data))
+                                    {
+                                        string uniqueId = Guid.NewGuid().ToString("N");
+                                        var contentType = "image/jpeg";
+                                        string extension = contentType switch
+                                        {
+                                            "image/jpeg" => ".jpg",
+                                            "image/png" => ".png",
+                                            "image/gif" => ".gif",
+                                            _ => ".bin"
+                                        };
+
+                                        string objectName = $"tg{messageDbId}_{uniqueId}{extension}";
+                                        imageDbData[objectName] = data;
+                                    }
+
+
+                                }
+                            }
+                        }
+                    }
                     await Task.Delay(500);
                 }
-                Console.WriteLine($"Загружено {allMessages.Count} сообщений...");
-
-                var imageDbData = new Dictionary<string, byte[]>();
-                var messageDbId = 0;
-                var messageDbText = "";                
-                foreach (var msgBase in allMessages.OrderBy(m => m.id))
-                {
-                    if (msgBase is Message msg)
-                    {
-                        string messageText = msgBase.message ?? "<пустое сообщение>";
-                        if (messageText != null && !messageText.Contains("#реклама") && messageText != "")
-                        {
-                            if (messageDbText != "")
-                            {
-                                Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageDbData.Count}");
-                                
-                                using (ApplicationContext db = new())
-                                {
-                                    var message = new TgMessages
-                                    {
-                                        MessageText = messageDbText,
-                                        MessageId = messageDbId,
-                                        СhannelUrl = channelName,
-                                    };                                    
-                                    bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
-                                    if (exists) 
-                                    {
-                                        Console.WriteLine($"Сообщение {message.MessageId} уже в базе");
-                                    }
-                                    else
-                                    {
-                                        foreach (var imageDB in imageDbData)
-                                        {
-                                            message.Photos?.Add(new TgPhotos { PhotoUrl = imageDB.Key });
-                                            var uploader = new MinioUploader();
-                                            await uploader.UploadImage(imageDB.Value, imageDB.Key, "image/jpeg");
-                                        }
-                                        db.TgMessages.AddRange(message);
-                                        db.SaveChanges();
-                                        Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
-                                    }                                        
-                                }
-
-                                imageDbData.Clear();
-                                
-                            }
-                            
-                            string mess = messageText.Trim();
-                            messageText = Regex.Replace(mess, @"\p{Cs}|\p{So}", "");
-                            messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
-                            Console.WriteLine($"Сообщение ID {msgBase.id}: {messageText}");
-                            messageDbText = messageText;
-                            messageDbId = msgBase.id;
-                        }
-
-                        if (messageImages.ContainsKey(msgBase.id))
-                        {
-                            var imagi = messageImages[msgBase.id];
-                            for (int i = 0; i < imagi.Count; i++)
-                            {
-                                var (type, data) = imagi[i];
-                                if (!await DetectPersonAsync(data))
-                                {
-                                    string uniqueId = Guid.NewGuid().ToString("N");
-                                    var contentType = "image/jpeg";
-                                    string extension = contentType switch
-                                    {
-                                        "image/jpeg" => ".jpg",
-                                        "image/png" => ".png",
-                                        "image/gif" => ".gif",
-                                        _ => ".bin"
-                                    };
-
-                                    string objectName = $"tg{messageDbId}_{uniqueId}{extension}";
-                                    imageDbData[objectName] = data;                                    
-                                }
-                                    
-
-                            }
-                        }                                                                                            
-                    }                    
-                }
+                
 
                 if (messageDbText != "")
                 {
-                    Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageDbData.Count}");
-
-                    using (ApplicationContext db = new())
-                    {
-                        var message = new TgMessages
-                        {
-                            MessageText = messageDbText,
-                            MessageId = messageDbId,
-                            СhannelUrl = channelName,
-                        };
-                        bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
-                        if (exists)
-                        {
-                            Console.WriteLine($"Сообщение {message.MessageId} уже в базе");
-                        }
-                        else
-                        {
-                            foreach (var imageDB in imageDbData)
-                            {
-                                message.Photos?.Add(new TgPhotos { PhotoUrl = imageDB.Key });
-                                var uploader = new MinioUploader();
-                                await uploader.UploadImage(imageDB.Value, imageDB.Key, "image/jpeg");
-                            }
-                            db.TgMessages.AddRange(message);
-                            db.SaveChanges();
-                            Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
-                        }
-                    }
-
+                    await SaveMessageToDb(messageDbId, messageDbText, imageDbData, channelName);                    
                     imageDbData.Clear();
 
                 }
