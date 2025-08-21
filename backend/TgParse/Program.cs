@@ -23,7 +23,6 @@ using System.Security.AccessControl;
 
 namespace TgParse
 {
-
     public class MinioUploader
     {
         private readonly IMinioClient _minio;
@@ -467,32 +466,20 @@ namespace TgParse
                 while (offset_id < maxId+100)
                 {
                     Console.WriteLine($"ID:::{offset_id}");
-                    var messag = await client.Messages_GetHistory(channel, offset_id, limit: 100);
+                    var messagesResponse = await client.Messages_GetHistory(channel, offset_id, limit: 100);
 
-                    if (messag.Messages.Length == 0)
+                    if (messagesResponse.Messages.Length == 0)
                     {
                         Console.WriteLine("Сообщения закончились.");
                         break;
 
                     }
-                    var messageBatch = messag.Messages.OfType<Message>().ToList();                    
-                    allMessages.AddRange(messageBatch);
+                    var messageBatch = messagesResponse.Messages.OfType<Message>().OrderBy(m => m.id).ToList();
+
                     offset_id += 100;
 
-                    foreach (var msg in messageBatch)
-                    {
-                        var imagu = await ProcessMessageMedia(client, msg);
-                        if (imagu.Any())
-                        {
-                            messageImages[msg.id] = imagu;
-                        }
-                    }
-                    
-                    Console.WriteLine($"Загружено {allMessages.Count} сообщений...");
-
-                    
-                    foreach (var msgBase in allMessages.OrderBy(m => m.id))
-                    {
+                    foreach (var msgBase in messageBatch)
+                    {                                                
                         if (msgBase is Message msg)
                         {
                             string messageText = msgBase.message ?? "<пустое сообщение>";
@@ -512,37 +499,33 @@ namespace TgParse
                                 messageDbText = messageText;
                                 messageDbId = msgBase.id;
                             }
-
-                            if (messageImages.ContainsKey(msgBase.id))
-                            {
-                                var imagi = messageImages[msgBase.id];
-                                for (int i = 0; i < imagi.Count; i++)
+                            var imageBytesList = await ProcessMessageMedia(client, msg);
+                                                          
+                            foreach (var imageBytes in imageBytesList)
+                            {                                
+                                if (!await DetectPersonAsync(imageBytes))
                                 {
-                                    var data = imagi[i];
-                                    if (!await DetectPersonAsync(data))
+                                    string uniqueId = Guid.NewGuid().ToString("N");
+                                    var contentType = "image/jpeg";
+                                    string extension = contentType switch
                                     {
-                                        string uniqueId = Guid.NewGuid().ToString("N");
-                                        var contentType = "image/jpeg";
-                                        string extension = contentType switch
-                                        {
-                                            "image/jpeg" => ".jpg",
-                                            "image/png" => ".png",
-                                            "image/gif" => ".gif",
-                                            _ => ".bin"
-                                        };
+                                        "image/jpeg" => ".jpg",
+                                        "image/png" => ".png",
+                                        "image/gif" => ".gif",
+                                        _ => ".bin"
+                                    };
 
-                                        string objectName = $"tg{messageDbId}_{uniqueId}{extension}";
-                                        imageDbData[objectName] = data;
-                                    }
-
-
+                                    string objectName = $"tg{messageDbId}_{uniqueId}{extension}";
+                                    imageDbData[objectName] = imageBytes;
                                 }
+
+
                             }
+                            
                         }
-                    }
+                    }                                                                                                                          
                     await Task.Delay(500);
-                }
-                
+                }                
 
                 if (messageDbText != "")
                 {
