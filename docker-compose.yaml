@@ -55,6 +55,8 @@ services:
         condition: service_healthy
      
   minio:
+    env_file:
+       - ./backend/.env
     image: minio/minio:latest
     container_name: minio
     ports:
@@ -68,6 +70,8 @@ services:
     command: server /data --console-address :9001
 
   mc:
+    env_file:
+       - ./backend/.env
     image: minio/mc:latest
     container_name: mc
     depends_on:
@@ -86,6 +90,8 @@ services:
       tail -f /dev/null"    
 
   db:
+    env_file:
+       - ./backend/.env
     image: postgres:14
     container_name: postgres_db
     healthcheck:
@@ -104,6 +110,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   pgadmin:
+    env_file:
+       - ./backend/.env
     image: dpage/pgadmin4
     environment:
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
