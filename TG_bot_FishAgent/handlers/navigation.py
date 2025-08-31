@@ -30,9 +30,9 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
         
         photos = spot.get('photos') or spot.get('images') or []
         photos = [
-                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\two.jpg",
-                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\first.jpg",
-                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot\free.jpg"
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot_FishAgent\two.jpg",
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot_FishAgent\first.jpg",
+                                r"C:\Users\user\Desktop\projects\fishing_agent\TG_bot_FishAgent\free.jpg"
                             ]
         media_items = MediaHandler.prepare_media_items(photos, description)
         
