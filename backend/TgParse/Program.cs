@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TgParse.Data;
 using TgParse.Services;
@@ -29,7 +28,7 @@ namespace TgParse
         }
 
         static async Task Main(string[] args)
-        {
+        {            
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             var serviceProvider = serviceCollection.BuildServiceProvider();
@@ -48,6 +47,7 @@ namespace TgParse
             var response = await PlaceComparor.DataConverter(messageText);
             Console.WriteLine(response);
             //await TelegramParser.RunApplication();
+            
         }
     } 
 }
