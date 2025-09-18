@@ -26,8 +26,12 @@ namespace TgParse.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<TgMessages>()
-            .HasIndex(m => m.MessageId)
-            .IsUnique();
+                .HasIndex(m => m.MessageId)
+                .IsUnique();
+
+            //modelBuilder.Entity<FishingPlaces>()
+            //    .HasIndex(m => m.PlaceId)
+            //    .IsUnique();
         }
     }
 }

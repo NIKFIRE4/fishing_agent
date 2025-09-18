@@ -1,28 +1,28 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
+using System.Text;
 
 namespace TgParse.Services
 {
-    public static class PersonDetector
+    public class PlaceComparor
     {
-        public static async Task<bool> DetectPersonAsync(byte[] byteImage)
+        
+        public static async Task<JsonDocument?> DataConverter(string dbMessage)
         {
-            string base64Image = Convert.ToBase64String(byteImage);
+            
             var jsonObject = new
             {
-                image = base64Image
-            };            
+                message = dbMessage
+            };
+            Console.WriteLine(jsonObject.ToString());
             // Сериализуем в JSON
-            string json = JsonSerializer.Serialize(jsonObject);              
+            string json = JsonSerializer.Serialize(jsonObject);
+            Console.WriteLine(json);
             using HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://ml_service:8001/");
-
-            // Сериализация данных в JSON
-
             HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
             // Отправка POST-запроса
-            HttpResponseMessage response = await client.PostAsync("detect-person", content);
+            HttpResponseMessage response = await client.PostAsync("compare_fishing_places", content);
 
             // Чтение ответа
             if (response.IsSuccessStatusCode)
@@ -30,14 +30,16 @@ namespace TgParse.Services
                 string responseBody = await response.Content.ReadAsStringAsync();
 
                 JsonDocument doc = JsonDocument.Parse(responseBody);
-                return doc.RootElement.GetProperty("person_detected").GetBoolean();
+                return doc;
 
             }
             else
             {
                 Console.WriteLine($"Ошибка: {response.StatusCode}");
-                return false;
+                return null;
             }
         }
+
+        
     }
 }

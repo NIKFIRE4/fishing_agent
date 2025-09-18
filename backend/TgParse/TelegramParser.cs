@@ -223,7 +223,7 @@ namespace TgParse.Services
                     imageDbData.Clear();
 
                 }
-
+                
             }
             catch (Exception ex)
             {

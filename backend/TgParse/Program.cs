@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TgParse.Data;
 using TgParse.Services;
@@ -38,8 +39,15 @@ namespace TgParse
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
                 ApplyMigrations(context);
             }
+            using ApplicationContext db = new();
 
-            await TelegramParser.RunApplication();
+            var messageText = db.TgMessages
+        .Where(m => m.MessageId == 123)
+        .Select(m => m.MessageText)
+        .FirstOrDefault();
+            var response = await PlaceComparor.DataConverter(messageText);
+            Console.WriteLine(response);
+            //await TelegramParser.RunApplication();
         }
     } 
 }

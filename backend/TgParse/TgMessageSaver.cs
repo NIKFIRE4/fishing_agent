@@ -16,7 +16,7 @@ namespace TgParse.Data
             Console.WriteLine($"КОЛИЧЕСТОВ ФОТОК ДЛЯ ДБ:: {imageData.Count}");
 
             using (ApplicationContext db = new())
-            {
+            {              
                 var message = new TgMessages
                 {
                     MessageText = messageText,
@@ -38,7 +38,7 @@ namespace TgParse.Data
                     }
                     db.TgMessages.AddRange(message);
                     db.SaveChanges();
-                    Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");
+                    Console.WriteLine($"Сообщение {message.MessageId} занесено в базу");                    
                 }
             }
         }
