@@ -1,4 +1,0 @@
-asyncpg
-aiogram
-APScheduler
-python-decouple
