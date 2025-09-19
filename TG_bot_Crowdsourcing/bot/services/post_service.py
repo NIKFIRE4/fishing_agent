@@ -8,7 +8,8 @@ from aiogram.types import Message, User
 from bot.models.post import PostData
 from bot.utils.helpers import generate_post_id
 from data.storage import PostStorage
-
+import asyncio
+from ..database.user_service import UserService
 class PostService:
     """Сервис для работы с постами"""
     
@@ -29,6 +30,13 @@ class PostService:
         
         post_id = generate_post_id(user.id)
         PostStorage.add_post(post_id, post_data)
+        
+        # Асинхронно увеличиваем счетчик отправленных постов
+        try:
+            loop = asyncio.get_event_loop()
+            loop.create_task(UserService.increment_submitted_posts(user.id))
+        except Exception as e:
+            print(f"Ошибка обновления счетчика отправленных постов: {e}")
         
         return post_id, post_data
     

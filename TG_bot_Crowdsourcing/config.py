@@ -19,7 +19,14 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "")
 # ID администратора, который может модерировать посты
 ADMIN_ID = os.getenv("ADMIN_ID", "")
 
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "camp_place_bot")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
 
+# URL подключения к базе данных
+DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Настройки постов
 MAX_PHOTOS = 10

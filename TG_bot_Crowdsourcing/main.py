@@ -6,13 +6,12 @@ import logging
 import sys
 import os
 from pathlib import Path
-
-from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
-
 # Загружаем переменные окружения из .env файла ПЕРВЫМ ДЕЛОМ
 load_dotenv()
+from bot.database import database
+from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 
 # Добавляем корневую папку в путь для импортов
 sys.path.append(str(Path(__file__).parent))
@@ -40,7 +39,11 @@ async def main():
     if not BOT_TOKEN:
         logger.error("Не указан токен бота! Установите BOT_TOKEN в config.py или .env файле")
         return
-    
+    await database.create_tables()
+    # 2) Проверяем подключение
+    ok = await database.check_connection()
+    if not ok:
+        logging.error("Не удалось подключиться к БД")
     # Инициализация бота и диспетчера
     bot = Bot(token=BOT_TOKEN)
     storage = MemoryStorage()

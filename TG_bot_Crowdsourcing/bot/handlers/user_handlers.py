@@ -15,7 +15,7 @@ from bot.services.post_service import PostService
 from bot.services.moderation_service import ModerationService
 from bot.utils.helpers import validate_date
 from config import MAX_PHOTOS, MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH, MESSAGES
-
+from ..database.user_service import UserService
 router = Router()
 
 @router.callback_query(F.data == "create_post")
@@ -140,7 +140,7 @@ async def finish_photos(callback: CallbackQuery, state: FSMContext):
     
     await callback.message.edit_text(
         "📍 Теперь укажите **название места** похода.\n\n"
-        "Например: 'Гора Эльбрус', 'Озеро Байкал', 'Карелия'",
+        "Например: 'Финский залив, Канонерский остров', 'Ладожское озеро, Назия', 'Лемболово'",
         reply_markup=get_cancel_keyboard(),
         parse_mode="Markdown"
     )
@@ -262,6 +262,8 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """Подтверждает и отправляет пост на модерацию"""
     await callback.answer()
     
+    await UserService.get_or_create_user(callback.from_user)
+    data = await state.get_data()
     data = await state.get_data()
     
     # Создаем пост

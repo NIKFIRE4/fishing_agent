@@ -97,20 +97,34 @@ async def show_admin_stats(callback: CallbackQuery):
     
     await callback.answer()
     
-    stats = PostService.get_statistics()
+    
+    memory_stats = PostService.get_statistics()
+    
+    # Получаем статистику пользователей из БД
+    from ..database.user_service import UserService
+    db_stats = await UserService.get_all_users_stats()
     
     stats_text = (
         f"СТАТИСТИКА БОТА\n\n"
-        f"Постов на модерации: {stats['total_posts']}\n"
-        f"Уникальных пользователей: {stats['unique_users']}\n"
+        f"ПОСТЫ:\n"
+        f"• На модерации: {memory_stats['total_posts']}\n"
+        f"• Всего опубликовано: {db_stats['total_posts']}\n"
+        f"• Всего отправлено: {db_stats['total_submitted']}\n"
+        f"• Процент одобрения: {db_stats['approval_rate']}%\n\n"
+        f"ПОЛЬЗОВАТЕЛИ:\n"
+        f"• Всего зарегистрировано: {db_stats['total_users']}\n"
+        f"• Новых за месяц: {db_stats['recent_users']}\n"
     )
     
-    if stats['total_posts'] > 0:
-        stats_text += "\nПоследние посты:\n"
-        for i, (post_id, post_data) in enumerate(list(stats['all_posts'].items())[-5:]):
-            stats_text += f"• @{post_data.username} - {post_data.date}\n"
-    else:
-        stats_text += "\nНет постов на модерации"
+    if db_stats['top_users']:
+        stats_text += "\nТОП АВТОРЫ:\n"
+        for user in db_stats['top_users'][:5]:
+            stats_text += f"• {user['username']}: {user['posts_count']} постов\n"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Недавние пользователи", callback_data="recent_users")],
+        [InlineKeyboardButton(text="🔙 Назад к админ меню", callback_data="back_to_admin")]
+    ])
     
     await callback.message.edit_text(
         stats_text,

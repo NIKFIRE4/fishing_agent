@@ -11,7 +11,7 @@ from bot.models.post import PostData
 from bot.keyboards.admin_keyboards import get_moderation_keyboard
 from bot.services.post_service import PostService
 from config import ADMIN_ID, CHANNEL_ID, MESSAGES
-
+from ..database.user_service import UserService
 logger = logging.getLogger(__name__)
 
 class ModerationService:
@@ -58,6 +58,8 @@ class ModerationService:
                     
                 )
             
+            await UserService.increment_published_posts(post_data.user_id)
+            # Уведомляем автора
             # Уведомляем автора
             await self.bot.send_message(
                 chat_id=post_data.user_id,
