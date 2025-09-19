@@ -6,7 +6,7 @@ from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-
+import os
 from bot.services.post_service import PostService
 from bot.services.moderation_service import ModerationService
 from bot.keyboards.admin_keyboards import (
@@ -15,14 +15,31 @@ from bot.keyboards.admin_keyboards import (
 )
 from bot.keyboards.user_keyboards import get_main_menu_keyboard
 from bot.states.states import EditPostStates
+from bot.utils.helpers import validate_date
+from config import MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH
 from config import ADMIN_ID
 
 logger = logging.getLogger(__name__)
 router = Router()
 
+def parse_admin_ids(env_value: str) -> set[int]:
+    ids = set()
+    if not env_value:
+        return ids
+    for part in env_value.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            ids.add(int(part))
+        except ValueError:
+            logger.warning("Invalid ADMIN_ID value ignored: %r", part)
+    return ids
+
+ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID", ""))
+
 def is_admin(user_id: int) -> bool:
-    """Проверяет, является ли пользователь администратором"""
-    return user_id == int(ADMIN_ID)
+    return user_id in ADMIN_IDS
 
 @router.message(Command("admin"))
 async def admin_command(message: Message):
@@ -87,7 +104,6 @@ async def go_to_main_menu(callback: CallbackQuery):
         reply_markup=get_main_menu_keyboard()
     )
 
-
 @router.callback_query(F.data == "admin_stats")
 async def show_admin_stats(callback: CallbackQuery):
     """Показывает статистику для администратора"""
@@ -96,7 +112,6 @@ async def show_admin_stats(callback: CallbackQuery):
         return
     
     await callback.answer()
-    
     
     memory_stats = PostService.get_statistics()
     
@@ -268,7 +283,7 @@ async def start_edit_post(callback: CallbackQuery, state: FSMContext):
         f"Автор: @{post_data.username}\n"
         f"Текущая дата: {post_data.date}\n"
         f"Текущее место: {post_data.location_name}\n"
-        f"Текущее описание: {post_data.location_description[:100]}...\n"
+        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description) > 100 else ''}\n"
         f"Текущие координаты: {post_data.coordinates}\n"
         f"Фотографий: {len(post_data.photos)}\n\n"
         f"Что хотите изменить?"
@@ -373,90 +388,183 @@ async def edit_post_coordinates(callback: CallbackQuery, state: FSMContext):
 
 # Обработчики для состояний редактирования
 @router.message(EditPostStates.edit_date)
-async def process_edit_date(message: Message, state: FSMContext):
+async def process_edit_date(message: Message, state: FSMContext, bot: Bot):
     """Обработка новой даты"""
     if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав администратора")
+        await state.clear()
         return
     
-    from bot.utils.helpers import validate_date
+    # Проверяем, что мы действительно в состоянии редактирования
+    current_state = await state.get_state()
+    if current_state != EditPostStates.edit_date:
+        await message.answer("Ошибка состояния. Попробуйте начать редактирование заново.")
+        await state.clear()
+        return
     
     date_obj = validate_date(message.text)
     if not date_obj:
-        await message.answer("Неверный формат даты! Используйте ДД.ММ.ГГГГ")
+        await message.answer(
+            "❌ Неверный формат даты! Используйте формат ДД.ММ.ГГГГ\n"
+            "Например: 15.09.2025"
+        )
         return
     
     data = await state.get_data()
     post_id = data.get('editing_post_id')
     
-    if post_id:
-        # Обновляем пост
-        post_data = PostService.get_post(post_id)
-        if post_data:
-            post_data.date = message.text
-            await message.answer(f"Дата обновлена на: {message.text}")
-            await state.clear()
-            
-            # Возвращаемся к меню редактирования
-            await start_edit_post_by_id(message, post_id)
-
-@router.message(EditPostStates.edit_location_name)
-async def process_edit_location_name(message: Message, state: FSMContext):
-    """Обработка нового названия места"""
-    if not is_admin(message.from_user.id):
+    if not post_id:
+        await message.answer("Ошибка: ID поста не найден")
+        await state.clear()
         return
     
-    data = await state.get_data()
-    post_id = data.get('editing_post_id')
-    
-    if post_id:
-        post_data = PostService.get_post(post_id)
-        if post_data:
-            post_data.location_name = message.text
-            await message.answer("Название места обновлено!")
-            await state.clear()
-            
-            await start_edit_post_by_id(message, post_id)
-
-@router.message(EditPostStates.edit_location_description)
-async def process_edit_location_description(message: Message, state: FSMContext):
-    """Обработка нового описания"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    data = await state.get_data()
-    post_id = data.get('editing_post_id')
-    
-    if post_id:
-        post_data = PostService.get_post(post_id)
-        if post_data:
-            post_data.location_description = message.text
-            await message.answer("Описание обновлено!")
-            await state.clear()
-            
-            await start_edit_post_by_id(message, post_id)
-
-@router.message(EditPostStates.edit_coordinates)
-async def process_edit_coordinates(message: Message, state: FSMContext):
-    """Обработка новых координат"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    data = await state.get_data()
-    post_id = data.get('editing_post_id')
-    
-    if post_id:
-        post_data = PostService.get_post(post_id)
-        if post_data:
-            post_data.coordinates = message.text
-            await message.answer("Координаты обновлены!")
-            await state.clear()
-            
-            await start_edit_post_by_id(message, post_id)
-
-async def start_edit_post_by_id(message: Message, post_id: str):
-    """Вспомогательная функция для возврата к меню редактирования"""
+    # Обновляем пост
     post_data = PostService.get_post(post_id)
     if not post_data:
+        await message.answer("Ошибка: пост не найден")
+        await state.clear()
+        return
+    
+    post_data.date = message.text
+    await message.answer(f"✅ Дата обновлена на: {message.text}")
+    await state.clear()
+    
+    # Возвращаемся к меню редактирования
+    await return_to_edit_menu(message, post_id, bot)
+
+@router.message(EditPostStates.edit_location_name)
+async def process_edit_location_name(message: Message, state: FSMContext, bot: Bot):
+    """Обработка нового названия места"""
+    if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав администратора")
+        await state.clear()
+        return
+    
+    current_state = await state.get_state()
+    if current_state != EditPostStates.edit_location_name:
+        await message.answer("Ошибка состояния. Попробуйте начать редактирование заново.")
+        await state.clear()
+        return
+    
+    location_name = message.text.strip()
+    
+    if len(location_name) < 2:
+        await message.answer("❌ Название места слишком короткое! Минимум 2 символа.")
+        return
+    
+    if len(location_name) > 100:
+        await message.answer("❌ Название места слишком длинное! Максимум 100 символов.")
+        return
+    
+    data = await state.get_data()
+    post_id = data.get('editing_post_id')
+    
+    if not post_id:
+        await message.answer("Ошибка: ID поста не найден")
+        await state.clear()
+        return
+    
+    post_data = PostService.get_post(post_id)
+    if not post_data:
+        await message.answer("Ошибка: пост не найден")
+        await state.clear()
+        return
+    
+    post_data.location_name = location_name
+    await message.answer("✅ Название места обновлено!")
+    await state.clear()
+    
+    await return_to_edit_menu(message, post_id, bot)
+
+@router.message(EditPostStates.edit_location_description)
+async def process_edit_location_description(message: Message, state: FSMContext, bot: Bot):
+    """Обработка нового описания"""
+    if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав администратора")
+        await state.clear()
+        return
+    
+    current_state = await state.get_state()
+    if current_state != EditPostStates.edit_location_description:
+        await message.answer("Ошибка состояния. Попробуйте начать редактирование заново.")
+        await state.clear()
+        return
+    
+    description = message.text.strip()
+    
+    if len(description) < MIN_DESCRIPTION_LENGTH:
+        await message.answer(f"❌ Описание слишком короткое! Минимум {MIN_DESCRIPTION_LENGTH} символов.")
+        return
+    
+    if len(description) > MAX_DESCRIPTION_LENGTH:
+        await message.answer(f"❌ Описание слишком длинное! Максимум {MAX_DESCRIPTION_LENGTH} символов.")
+        return
+    
+    data = await state.get_data()
+    post_id = data.get('editing_post_id')
+    
+    if not post_id:
+        await message.answer("Ошибка: ID поста не найден")
+        await state.clear()
+        return
+    
+    post_data = PostService.get_post(post_id)
+    if not post_data:
+        await message.answer("Ошибка: пост не найден")
+        await state.clear()
+        return
+    
+    post_data.location_description = description
+    await message.answer("✅ Описание обновлено!")
+    await state.clear()
+    
+    await return_to_edit_menu(message, post_id, bot)
+
+@router.message(EditPostStates.edit_coordinates)
+async def process_edit_coordinates(message: Message, state: FSMContext, bot: Bot):
+    """Обработка новых координат"""
+    if not is_admin(message.from_user.id):
+        await message.answer("У вас нет прав администратора")
+        await state.clear()
+        return
+    
+    current_state = await state.get_state()
+    if current_state != EditPostStates.edit_coordinates:
+        await message.answer("Ошибка состояния. Попробуйте начать редактирование заново.")
+        await state.clear()
+        return
+    
+    coordinates = message.text.strip()
+    
+    if len(coordinates) < 3:
+        await message.answer("❌ Координаты слишком короткие! Укажите корректные координаты.")
+        return
+    
+    data = await state.get_data()
+    post_id = data.get('editing_post_id')
+    
+    if not post_id:
+        await message.answer("Ошибка: ID поста не найден")
+        await state.clear()
+        return
+    
+    post_data = PostService.get_post(post_id)
+    if not post_data:
+        await message.answer("Ошибка: пост не найден")
+        await state.clear()
+        return
+    
+    post_data.coordinates = coordinates
+    await message.answer("✅ Координаты обновлены!")
+    await state.clear()
+    
+    await return_to_edit_menu(message, post_id, bot)
+
+async def return_to_edit_menu(message: Message, post_id: str, bot: Bot):
+    """Возвращает к меню редактирования поста"""
+    post_data = PostService.get_post(post_id)
+    if not post_data:
+        await message.answer("Ошибка: пост не найден")
         return
     
     edit_menu = (
@@ -464,7 +572,7 @@ async def start_edit_post_by_id(message: Message, post_id: str):
         f"Автор: @{post_data.username}\n"
         f"Текущая дата: {post_data.date}\n"
         f"Текущее место: {post_data.location_name}\n"
-        f"Текущее описание: {post_data.location_description[:100]}...\n"
+        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description) > 100 else ''}\n"
         f"Текущие координаты: {post_data.coordinates}\n"
         f"Фотографий: {len(post_data.photos)}\n\n"
         f"Что хотите изменить?"
@@ -544,20 +652,13 @@ async def reject_post(callback: CallbackQuery, bot: Bot):
     else:
         await callback.answer("Ошибка при отклонении", show_alert=True)
 
-@router.callback_query(F.data.startswith("edit_"))
-async def old_edit_handler(callback: CallbackQuery, bot: Bot):
-    """Старый обработчик edit_ - переадресация на request_edit_"""
-    if not is_admin(callback.from_user.id):
-        await callback.answer("У вас нет прав администратора", show_alert=True)
-        return
-    
-    # Переадресуем на новый обработчик
-    old_post_id = callback.data.replace("edit_", "")
-    new_callback_data = f"request_edit_{old_post_id}"
-    
-    # Создаем новый callback с правильными данными
-    callback.data = new_callback_data
-    await request_edit(callback, bot)
+# УДАЛЯЕМ СТАРЫЙ ОБРАБОТЧИК - он больше не нужен
+# Все кнопки уже используют правильный формат edit_post_, request_edit_ и т.д.
+# 
+# @router.callback_query(F.data.startswith("edit_") & ~F.data.startswith("edit_post_") & ~F.data.startswith("edit_date_") & ~F.data.startswith("edit_name_") & ~F.data.startswith("edit_location_") & ~F.data.startswith("edit_coords_"))
+# async def old_edit_handler(callback: CallbackQuery, bot: Bot):
+#     """УДАЛЕН - больше не нужен"""
+#     pass
 
 # Дополнительные команды (скрытые для быстрого доступа)
 @router.message(Command("stats"))
@@ -589,3 +690,23 @@ async def get_my_id_command(message: Message):
     )
     
     await message.answer(user_info)
+
+# Обработчик только для админских состояний - НЕ общий обработчик!
+@router.message(EditPostStates.edit_date)
+@router.message(EditPostStates.edit_location_name)  
+@router.message(EditPostStates.edit_location_description)
+@router.message(EditPostStates.edit_coordinates)
+async def handle_admin_non_text_in_edit_states(message: Message, state: FSMContext):
+    """Обработчик НЕ-текстовых сообщений в админских состояниях редактирования"""
+    if not is_admin(message.from_user.id):
+        return
+    
+    current_state = await state.get_state()
+    
+    # Если администратор в состоянии редактирования, но прислал не текст
+    if current_state and str(current_state).startswith('EditPostStates') and message.content_type != 'text':
+        await message.answer(
+            "❌ В режиме редактирования можно отправлять только текстовые сообщения.\n"
+            "Отправьте текст или используйте кнопку 'Отменить'."
+        )
+        return

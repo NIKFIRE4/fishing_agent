@@ -11,12 +11,17 @@ from bot.keyboards.user_keyboards import (
     get_cancel_keyboard, get_photos_keyboard, 
     get_confirm_keyboard, get_main_menu_keyboard
 )
+from config import ADMIN_ID
 from bot.services.post_service import PostService
 from bot.services.moderation_service import ModerationService
 from bot.utils.helpers import validate_date
 from config import MAX_PHOTOS, MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH, MESSAGES
 from ..database.user_service import UserService
 router = Router()
+
+def is_admin(user_id: int) -> bool:
+    """Проверяет, является ли пользователь администратором"""
+    return user_id == int(ADMIN_ID)
 
 @router.callback_query(F.data == "create_post")
 async def start_post_creation(callback: CallbackQuery, state: FSMContext):
@@ -264,7 +269,6 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     
     await UserService.get_or_create_user(callback.from_user)
     data = await state.get_data()
-    data = await state.get_data()
     
     # Создаем пост
     post_id, post_data = PostService.create_post(
@@ -319,14 +323,25 @@ async def handle_unknown_messages(message: Message, state: FSMContext):
     """Обрабатывает неизвестные сообщения (fallback)"""
     current_state = await state.get_state()
     
+    # Если это админ в админском состоянии - не обрабатываем здесь
+    if is_admin(message.from_user.id) and current_state and str(current_state).startswith('EditPostStates'):
+        return
+    
     if current_state is None:
         await message.answer(
             "Используйте кнопки меню для навигации:",
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        # Если пользователь в каком-то состоянии, но прислал не то сообщение
-        await message.answer(
-            "❓ Не понял ваше сообщение. Используйте кнопки или следуйте инструкциям.",
-            reply_markup=get_cancel_keyboard()
-        )
+        # Если пользователь в пользовательском состоянии, но прислал не то сообщение
+        if str(current_state).startswith('PostStates'):
+            await message.answer(
+                "❓ Не понял ваше сообщение. Используйте кнопки или следуйте инструкциям.",
+                reply_markup=get_cancel_keyboard()
+            )
+        else:
+            # Для всех остальных состояний
+            await message.answer(
+                "❓ Не понял ваше сообщение. Используйте кнопки меню:",
+                reply_markup=get_main_menu_keyboard()
+            )
