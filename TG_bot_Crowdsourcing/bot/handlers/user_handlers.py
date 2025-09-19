@@ -17,12 +17,11 @@ from bot.services.moderation_service import ModerationService
 from bot.utils.helpers import validate_date
 from config import MAX_PHOTOS, MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH, MESSAGES
 from ..database.user_service import UserService
+from bot.utils import admin
 router = Router()
 
 def is_admin(user_id: int) -> bool:
-    """Проверяет, является ли пользователь администратором"""
-    return user_id == int(ADMIN_ID)
-
+    return user_id in admin.ADMIN_IDS
 @router.callback_query(F.data == "create_post")
 async def start_post_creation(callback: CallbackQuery, state: FSMContext):
     """Начинает процесс создания поста"""

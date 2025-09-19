@@ -17,6 +17,25 @@ services:
     #   interval: 30s
     #   timeout: 5s
     #   retries: 3
+  tg_bot_crowdsourcing:
+    env_file:
+      - ./TG_bot_Crowdsourcing/.env
+    build:
+      context: ./TG_bot_Crowdsourcing
+      dockerfile: Dockerfile
+    image: fishing-tg-bot-crowdsourcing:latest
+    container_name: fishing_tg_bot_crowdsourcing
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CHANNEL_ID=${CHANNEL_ID}
+      - ADMIN_ID=${ADMIN_ID}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
 
   parsing_service:
     env_file:

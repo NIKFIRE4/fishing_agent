@@ -18,28 +18,12 @@ from bot.states.states import EditPostStates
 from bot.utils.helpers import validate_date
 from config import MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH
 from config import ADMIN_ID
-
+from bot.utils import admin
 logger = logging.getLogger(__name__)
 router = Router()
 
-def parse_admin_ids(env_value: str) -> set[int]:
-    ids = set()
-    if not env_value:
-        return ids
-    for part in env_value.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            ids.add(int(part))
-        except ValueError:
-            logger.warning("Invalid ADMIN_ID value ignored: %r", part)
-    return ids
-
-ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID", ""))
-
 def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+    return user_id in admin.ADMIN_IDS
 
 @router.message(Command("admin"))
 async def admin_command(message: Message):
