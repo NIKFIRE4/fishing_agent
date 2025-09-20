@@ -23,8 +23,8 @@ services:
     build:
       context: ./TG_bot_Crowdsourcing
       dockerfile: Dockerfile
-    image: fishing-tg-bot-crowdsourcing:latest
-    container_name: fishing_tg_bot_crowdsourcing
+    image: tg-bot-crowdsourcing:latest
+    container_name: tg_bot_crowdsourcing
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - CHANNEL_ID=${CHANNEL_ID}
