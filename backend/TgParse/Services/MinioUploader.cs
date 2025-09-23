@@ -39,7 +39,7 @@ namespace TgParse.Services
         public async Task UploadImage(byte[] imageData, string objectName, string contentType = "image/jpeg")
         {
             using var stream = new MemoryStream(imageData);
-            stream.Position = 0; // КРИТИЧЕСКИ ВАЖНО: сброс позиции потока!
+            stream.Position = 0; //сброс позиции потока!
 
             try
             {

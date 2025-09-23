@@ -1,7 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FFMpegCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using TgParse.Data;
 using TgParse.Services;
+
 
 namespace TgParse
 {
@@ -28,7 +31,7 @@ namespace TgParse
         }
 
         static async Task Main(string[] args)
-        {            
+        {
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             var serviceProvider = serviceCollection.BuildServiceProvider();
@@ -40,14 +43,23 @@ namespace TgParse
             }
             using ApplicationContext db = new();
 
-            var messageText = db.TgMessages
-        .Where(m => m.MessageId == 123)
-        .Select(m => m.MessageText)
-        .FirstOrDefault();
-            var response = await PlaceComparor.DataConverter(messageText);
-            Console.WriteLine(response);
-            //await TelegramParser.RunApplication();
-            
+
+
+            GlobalFFOptions.Configure(options =>
+            {
+                options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
+                options.TemporaryFilesFolder = Path.GetTempPath();
+            });
+
+
+            Console.WriteLine("FFmpeg dir: " + Path.Combine(AppContext.BaseDirectory, "FFmpeg"));
+            Console.WriteLine("ffmpeg exists: " + File.Exists(Path.Combine(AppContext.BaseDirectory, "FFmpeg", "ffmpeg.exe")));
+            Console.WriteLine("ffprobe exists: " + File.Exists(Path.Combine(AppContext.BaseDirectory, "FFmpeg", "ffprobe.exe")));
+            Console.WriteLine("System ffmpeg exists: " + File.Exists("/usr/bin/ffmpeg"));
+            Console.WriteLine("System ffprobe exists: " + File.Exists("/usr/bin/ffprobe"));
+
+
+            await TelegramParser.RunApplication();           
         }
     } 
 }
