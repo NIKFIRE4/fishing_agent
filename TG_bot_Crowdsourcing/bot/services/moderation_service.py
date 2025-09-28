@@ -5,13 +5,14 @@ import logging
 from typing import List
 
 from aiogram import Bot
-from aiogram.types import InputMediaPhoto
+from aiogram.types import InputMediaPhoto, InputMediaVideo
 
 from bot.models.post import PostData
 from bot.keyboards.admin_keyboards import get_moderation_keyboard
 from bot.services.post_service import PostService
 from config import ADMIN_ID, CHANNEL_ID, MESSAGES
 from ..database.user_service import UserService
+
 logger = logging.getLogger(__name__)
 
 class ModerationService:
@@ -35,31 +36,66 @@ class ModerationService:
         try:
             channel_text = post_data.to_channel_text()
             
-            # Публикуем в канале
-            if len(post_data.photos) == 1:
-                await self.bot.send_photo(
+            
+            # Получаем все медиафайлы
+            photos = post_data.photos or []
+            videos = getattr(post_data, 'videos', []) or []
+            total_media = len(photos) + len(videos)
+            
+            # Если медиафайлов нет
+            if total_media == 0:
+                # Отправляем только текст
+                await self.bot.send_message(
                     chat_id=CHANNEL_ID,
-                    photo=post_data.photos[0],
-                    caption=channel_text,
+                    text=channel_text,
                     parse_mode="HTML"
                 )
+            # Если всего один медиафайл
+            elif total_media == 1:
+                if photos:
+                    # Одно фото
+                    await self.bot.send_photo(
+                        chat_id=CHANNEL_ID,
+                        photo=photos[0],
+                        caption=channel_text,
+                        parse_mode="HTML"
+                    )
+                else:
+                    # Одно видео
+                    await self.bot.send_video(
+                        chat_id=CHANNEL_ID,
+                        video=videos[0],
+                        caption=channel_text,
+                        parse_mode="HTML"
+                    )
             else:
-                # Создаем медиа-группу
+                # Создаем медиа-группу из фото и видео
                 media = []
-                for i, photo_id in enumerate(post_data.photos):
-                    if i == 0:
+                caption_added = False
+                
+                # Добавляем фото
+                for photo_id in photos:
+                    if not caption_added:
                         media.append(InputMediaPhoto(media=photo_id, caption=channel_text, parse_mode="HTML"))
+                        caption_added = True
                     else:
                         media.append(InputMediaPhoto(media=photo_id))
+                
+                # Добавляем видео
+                for video_id in videos:
+                    if not caption_added:
+                        media.append(InputMediaVideo(media=video_id, caption=channel_text, parse_mode="HTML"))
+                        caption_added = True
+                    else:
+                        media.append(InputMediaVideo(media=video_id))
                 
                 await self.bot.send_media_group(
                     chat_id=CHANNEL_ID,
                     media=media
-                    
                 )
             
             await UserService.increment_published_posts(post_data.user_id)
-            # Уведомляем автора
+            
             # Уведомляем автора
             await self.bot.send_message(
                 chat_id=post_data.user_id,
@@ -73,6 +109,7 @@ class ModerationService:
             
         except Exception as e:
             logger.error(f"Ошибка публикации поста {post_id}: {e}")
+            print(f"DEBUG: Ошибка публикации: {e}")
             return False
     
     async def reject_post(self, post_id: str) -> bool:

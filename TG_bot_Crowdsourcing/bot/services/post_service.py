@@ -10,11 +10,12 @@ from bot.utils.helpers import generate_post_id
 from data.storage import PostStorage
 import asyncio
 from ..database.user_service import UserService
+
 class PostService:
     """Сервис для работы с постами"""
     
     @staticmethod
-    def create_post(user: User, date: str, photos: List[str], 
+    def create_post(user: User, date: str, photos: List[str], videos: List[str],
                    location_name: str, location_description: str, coordinates: str) -> tuple[str, PostData]:
         """Создает новый пост"""
         post_data = PostData(
@@ -22,6 +23,7 @@ class PostService:
             username=user.username or user.first_name or "Unknown",
             date=date,
             photos=photos,
+            videos=videos,  # Добавляем поддержку видео
             location_name=location_name,
             location_description=location_description,
             coordinates=coordinates,

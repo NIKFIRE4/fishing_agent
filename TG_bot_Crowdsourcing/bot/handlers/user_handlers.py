@@ -22,6 +22,7 @@ router = Router()
 
 def is_admin(user_id: int) -> bool:
     return user_id in admin.ADMIN_IDS
+
 @router.callback_query(F.data == "create_post")
 async def start_post_creation(callback: CallbackQuery, state: FSMContext):
     """Начинает процесс создания поста"""
@@ -60,15 +61,15 @@ async def process_date(message: Message, state: FSMContext):
     await state.update_data(date=message.text)
     
     await message.answer(
-        "📸 Отлично! Теперь отправьте **фотографии** с похода.\n\n"
-        f"Вы можете отправить от 1 до {MAX_PHOTOS} фотографий.\n"
-        "Отправляйте фото по одному, затем нажмите **\"✅ Закончить загрузку\"**",
+        "📸 Отлично! Теперь отправьте **фотографии и/или видео** с похода.\n\n"
+        f"Вы можете отправить от 1 до {MAX_PHOTOS} медиафайлов (фото и видео).\n"
+        "Отправляйте файлы по одному, затем нажмите **\"✅ Закончить загрузку\"**",
         reply_markup=get_photos_keyboard(),
         parse_mode="Markdown"
     )
     
     await state.set_state(PostStates.waiting_for_photos)
-    await state.update_data(photos=[])
+    await state.update_data(photos=[], videos=[])
 
 @router.message(PostStates.waiting_for_photos, F.photo)
 async def process_photos(message: Message, state: FSMContext):
@@ -78,10 +79,12 @@ async def process_photos(message: Message, state: FSMContext):
     """
     data = await state.get_data()
     photos = data.get('photos', [])
+    videos = data.get('videos', [])
+    total_media = len(photos) + len(videos)
 
-    if len(photos) >= MAX_PHOTOS:
+    if total_media >= MAX_PHOTOS:
         await message.answer(
-            f"❌ Максимум {MAX_PHOTOS} фотографий!",
+            f"❌ Максимум {MAX_PHOTOS} медиафайлов!",
             reply_markup=get_photos_keyboard()
         )
         return
@@ -107,10 +110,10 @@ async def process_photos(message: Message, state: FSMContext):
         sdata = await state.get_data()
         if sdata.get("album_update_time") == ts:
             # Метка не изменилась — это последний вызов для данного альбома.
-            total = len(sdata.get("photos", []))
+            total = len(sdata.get("photos", [])) + len(sdata.get("videos", []))
             await message.answer(
-                f"✅ Фото добавлено! Всего загружено: **{total}/{MAX_PHOTOS}**\n"
-                f"Отправьте ещё фото или нажмите **\"✅ Закончить загрузку\"**",
+                f"✅ Фото добавлено! Всего загружено: **{total}/{MAX_PHOTOS}** медиафайлов\n"
+                f"Отправьте ещё фото/видео или нажмите **\"✅ Закончить загрузку\"**",
                 reply_markup=get_photos_keyboard(),
                 parse_mode="Markdown"
             )
@@ -120,24 +123,85 @@ async def process_photos(message: Message, state: FSMContext):
 
     else:
         # Обычное одиночное фото — отвечаем сразу
+        total = len(photos) + len(videos)
         await message.answer(
-            f"✅ Фото добавлено! Всего загружено: **{len(photos)}/{MAX_PHOTOS}**\n"
-            f"Отправьте ещё фото или нажмите **\"✅ Закончить загрузку\"**",
+            f"✅ Фото добавлено! Всего загружено: **{total}/{MAX_PHOTOS}** медиафайлов\n"
+            f"Отправьте ещё фото/видео или нажмите **\"✅ Закончить загрузку\"**",
+            reply_markup=get_photos_keyboard(),
+            parse_mode="Markdown"
+        )
+
+@router.message(PostStates.waiting_for_photos, F.video)
+async def process_videos(message: Message, state: FSMContext):
+    """Обрабатывает видео."""
+    data = await state.get_data()
+    photos = data.get('photos', [])
+    videos = data.get('videos', [])
+    total_media = len(photos) + len(videos)
+
+    if total_media >= MAX_PHOTOS:
+        await message.answer(
+            f"❌ Максимум {MAX_PHOTOS} медиафайлов!",
+            reply_markup=get_photos_keyboard()
+        )
+        return
+
+    # Проверяем размер видео (например, максимум 50MB)
+    video_size_mb = message.video.file_size / (1024 * 1024)
+    if video_size_mb > 50:
+        await message.answer(
+            f"❌ Видео слишком большое ({video_size_mb:.1f} MB)! Максимум 50 MB.",
+            reply_markup=get_photos_keyboard()
+        )
+        return
+
+    # file_id видео
+    video_file_id = message.video.file_id
+    videos.append(video_file_id)
+    await state.update_data(videos=videos)
+
+    media_group_id = getattr(message, "media_group_id", None)
+
+    # Аналогичная логика дебаунса для видео в медиагруппах
+    if media_group_id:
+        ts = time.time()
+        await state.update_data(last_media_group_id=media_group_id, album_update_time=ts)
+
+        await asyncio.sleep(0.6)
+
+        sdata = await state.get_data()
+        if sdata.get("album_update_time") == ts:
+            total = len(sdata.get("photos", [])) + len(sdata.get("videos", []))
+            await message.answer(
+                f"✅ Видео добавлено! Всего загружено: **{total}/{MAX_PHOTOS}** медиафайлов\n"
+                f"Отправьте ещё фото/видео или нажмите **\"✅ Закончить загрузку\"**",
+                reply_markup=get_photos_keyboard(),
+                parse_mode="Markdown"
+            )
+        else:
+            return
+    else:
+        # Обычное одиночное видео
+        total = len(photos) + len(videos)
+        await message.answer(
+            f"✅ Видео добавлено! Всего загружено: **{total}/{MAX_PHOTOS}** медиафайлов\n"
+            f"Отправьте ещё фото/видео или нажмите **\"✅ Закончить загрузку\"**",
             reply_markup=get_photos_keyboard(),
             parse_mode="Markdown"
         )
 
 @router.callback_query(F.data == "finish_photos")
 async def finish_photos(callback: CallbackQuery, state: FSMContext):
-    """Завершает загрузку фотографий"""
+    """Завершает загрузку фотографий и видео"""
     await callback.answer()
     
     data = await state.get_data()
     photos = data.get('photos', [])
+    videos = data.get('videos', [])
     
-    if not photos:
+    if not photos and not videos:
         await callback.message.edit_text(
-            "❌ Загрузите хотя бы одно фото!",
+            "❌ Загрузите хотя бы одно фото или видео!",
             reply_markup=get_photos_keyboard()
         )
         return
@@ -245,10 +309,19 @@ async def finish_post_creation(message: Message, state: FSMContext, coordinates:
     await state.update_data(coordinates=coordinates)
     
     # Показываем предварительный просмотр
+    photos_count = len(data.get('photos', []))
+    videos_count = len(data.get('videos', []))
+    media_info = []
+    if photos_count > 0:
+        media_info.append(f"{photos_count} фото")
+    if videos_count > 0:
+        media_info.append(f"{videos_count} видео")
+    media_text = ", ".join(media_info)
+    
     preview_text = (
         "📋 **ПРЕДВАРИТЕЛЬНЫЙ ПРОСМОТР ПОСТА**\n\n"
         f"📅 **Дата похода:** {data['date']}\n"
-        f"📸 **Количество фото:** {len(data['photos'])}\n"
+        f"📸 **Медиафайлы:** {media_text}\n"
         f"📍 **Название места:** {data['location_name']}\n"
         f"📝 **Описание:**\n{data['location_description']}\n"
         f"🗺️ **Координаты:** {coordinates}\n\n"
@@ -273,7 +346,8 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     post_id, post_data = PostService.create_post(
         user=callback.from_user,
         date=data['date'],
-        photos=data['photos'],
+        photos=data.get('photos', []),
+        videos=data.get('videos', []),  # Добавляем видео
         location_name=data['location_name'],
         location_description=data['location_description'],
         coordinates=data['coordinates']
@@ -306,12 +380,12 @@ async def edit_post(callback: CallbackQuery, state: FSMContext):
     
     await state.set_state(PostStates.waiting_for_date)
 
-# Обработчики для состояния ожидания фото, если пришло не фото
+# Обработчики для состояния ожидания фото, если пришло не фото и не видео
 @router.message(PostStates.waiting_for_photos)
-async def handle_non_photo_in_photos_state(message: Message, state: FSMContext):
-    """Обрабатывает не-фото в состоянии ожидания фото"""
+async def handle_non_media_in_photos_state(message: Message, state: FSMContext):
+    """Обрабатывает не-медиа в состоянии ожидания фото/видео"""
     await message.answer(
-        "📸 Пожалуйста, отправьте фотографию или нажмите **\"✅ Закончить загрузку\"**",
+        "📸 Пожалуйста, отправьте фотографию или видео, либо нажмите **\"✅ Закончить загрузку\"**",
         reply_markup=get_photos_keyboard(),
         parse_mode="Markdown"
     )

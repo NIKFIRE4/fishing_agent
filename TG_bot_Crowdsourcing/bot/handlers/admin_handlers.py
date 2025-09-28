@@ -3,7 +3,7 @@
 """
 import logging
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 import os
@@ -171,7 +171,7 @@ async def clear_old_moderation_messages(user_id: int, bot: Bot):
         moderation_messages[user_id] = []
 
 async def show_post_details(callback_or_message, post_id: str, index: int):
-    """Показывает детали поста для модерации с фотографиями в одном сообщении"""
+    """Показывает детали поста для модерации с фотографиями и видео"""
     post_data = PostService.get_post(post_id)
     if not post_data:
         if hasattr(callback_or_message, 'message'):
@@ -188,14 +188,26 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
     
     stats = PostService.get_statistics()
     
+    # Обновляем информацию о медиафайлах
+    photos_count = len(post_data.photos or [])
+    videos_count = len(post_data.videos or [])
+    
+    media_info = []
+    if photos_count > 0:
+        media_info.append(f"{photos_count} фото")
+    if videos_count > 0:
+        media_info.append(f"{videos_count} видео")
+    
+    media_text = ", ".join(media_info) if media_info else "нет медиафайлов"
+    
     post_text = (
         f"ПОСТ НА МОДЕРАЦИИ ({index + 1}/{stats['total_posts']})\n\n"
         f"Автор: @{post_data.username}\n"
         f"Дата похода: {post_data.date}\n"
         f"Место: {post_data.location_name}\n"
-        f"Описание: {post_data.location_description[:200]}{'...' if len(post_data.location_description) > 200 else ''}\n"
+        f"Описание: {post_data.location_description[:200]}{'...' if len(post_data.location_description or '') > 200 else ''}\n"
         f"Координаты: {post_data.coordinates}\n"
-        f"Фото: {len(post_data.photos)} шт.\n"
+        f"Медиафайлы: {media_text}\n"
         f"Создан: {post_data.timestamp.strftime('%d.%m.%Y %H:%M')}"
     )
     
@@ -219,17 +231,30 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
         if user_id not in moderation_messages:
             moderation_messages[user_id] = []
     
-    # Если есть фотографии - отправляем как медиа группу с подписью
-    if post_data.photos:
+    # Собираем все медиафайлы
+    photos = post_data.photos or []
+    videos = post_data.videos or []
+    total_media = len(photos) + len(videos)
+    
+    # Если есть медиафайлы - отправляем их
+    if total_media > 0:
         try:
-            if len(post_data.photos) == 1:
-                # Одно фото - отправляем с подписью и клавиатурой
-                message = await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=post_data.photos[0],
-                    caption=post_text,
-                    reply_markup=keyboard
-                )
+            if total_media == 1:
+                # Один медиафайл - отправляем с подписью и клавиатурой
+                if photos:
+                    message = await bot.send_photo(
+                        chat_id=chat_id,
+                        photo=photos[0],
+                        caption=post_text,
+                        reply_markup=keyboard
+                    )
+                else:
+                    message = await bot.send_video(
+                        chat_id=chat_id,
+                        video=videos[0],
+                        caption=post_text,
+                        reply_markup=keyboard
+                    )
                 
                 # Сохраняем ID сообщения
                 if user_id not in moderation_messages:
@@ -237,15 +262,25 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
                 moderation_messages[user_id].append(message.message_id)
                 
             else:
-                # Несколько фото - делаем медиа группу
+                # Несколько медиафайлов - делаем медиа группу
                 media = []
-                for i, photo_id in enumerate(post_data.photos):
-                    if i == 0:
-                        # Первое фото с подписью
+                caption_added = False
+                
+                # Добавляем фото
+                for photo_id in photos:
+                    if not caption_added:
                         media.append(InputMediaPhoto(media=photo_id, caption=post_text))
+                        caption_added = True
                     else:
-                        # Остальные без подписи
                         media.append(InputMediaPhoto(media=photo_id))
+                
+                # Добавляем видео
+                for video_id in videos:
+                    if not caption_added:
+                        media.append(InputMediaVideo(media=video_id, caption=post_text))
+                        caption_added = True
+                    else:
+                        media.append(InputMediaVideo(media=video_id))
                 
                 # Отправляем медиа группу
                 messages = await bot.send_media_group(
@@ -269,17 +304,17 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
                 moderation_messages[user_id].append(keyboard_message.message_id)
                 
         except Exception as e:
-            logger.error(f"Ошибка отправки фото: {e}")
+            logger.error(f"Ошибка отправки медиафайлов: {e}")
             # В случае ошибки отправляем только текст
             if hasattr(callback_or_message, 'message'):
                 await callback_or_message.message.edit_text(
-                    post_text + "\n\n❌ Ошибка загрузки фотографий",
+                    post_text + "\n\n❌ Ошибка загрузки медиафайлов",
                     reply_markup=keyboard
                 )
             else:
                 message = await bot.send_message(
                     chat_id=chat_id,
-                    text=post_text + "\n\n❌ Ошибка загрузки фотографий",
+                    text=post_text + "\n\n❌ Ошибка загрузки медиафайлов",
                     reply_markup=keyboard
                 )
                 
@@ -287,7 +322,7 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
                     moderation_messages[user_id] = []
                 moderation_messages[user_id].append(message.message_id)
     else:
-        # Нет фотографий - обычное текстовое сообщение
+        # Нет медиафайлов - обычное текстовое сообщение
         if hasattr(callback_or_message, 'message'):
             await callback_or_message.message.edit_text(
                 post_text,
@@ -351,14 +386,26 @@ async def start_edit_post(callback: CallbackQuery, state: FSMContext):
     # Сохраняем ID редактируемого поста
     await state.update_data(editing_post_id=post_id)
     
+    # Обновляем информацию о медиафайлах
+    photos_count = len(post_data.photos or [])
+    videos_count = len(post_data.videos or [])
+    
+    media_info = []
+    if photos_count > 0:
+        media_info.append(f"{photos_count} фото")
+    if videos_count > 0:
+        media_info.append(f"{videos_count} видео")
+    
+    media_text = ", ".join(media_info) if media_info else "нет медиафайлов"
+    
     edit_menu = (
         f"РЕДАКТИРОВАНИЕ ПОСТА\n\n"
         f"Автор: @{post_data.username}\n"
         f"Текущая дата: {post_data.date}\n"
         f"Текущее место: {post_data.location_name}\n"
-        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description) > 100 else ''}\n"
+        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description or '') > 100 else ''}\n"
         f"Текущие координаты: {post_data.coordinates}\n"
-        f"Фотографий: {len(post_data.photos)}\n\n"
+        f"Медиафайлы: {media_text}\n\n"
         f"Что хотите изменить?"
     )
     
