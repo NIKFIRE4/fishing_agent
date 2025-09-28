@@ -3,13 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using TgParse;
+using TgParse.Data;
 
 #nullable disable
 
 namespace TgParse.Migrations
 {
-    [DbContext(typeof(TgParse.ApplicationContext))]
+    [DbContext(typeof(ApplicationContext))]
     partial class ApplicationContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
@@ -21,7 +21,87 @@ namespace TgParse.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("TgParse.MinioUploader+TgMessages", b =>
+            modelBuilder.Entity("TgParse.Models.FishType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FishType");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaceFish", b =>
+                {
+                    b.Property<int>("FishingPlaceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FishTypeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("FishingPlaceId", "FishTypeId");
+
+                    b.HasIndex("FishTypeId");
+
+                    b.ToTable("FishingPlaceFish");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaceWater", b =>
+                {
+                    b.Property<int>("FishingPlaceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WaterTypeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("FishingPlaceId", "WaterTypeId");
+
+                    b.HasIndex("WaterTypeId");
+
+                    b.ToTable("FishingPlaceWater");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaces", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CaughtFishes")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlaceDescription")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WaterPlace")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id")
+                        .IsUnique();
+
+                    b.ToTable("FishingPlaces");
+                });
+
+            modelBuilder.Entity("TgParse.Models.TgMessages", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -35,6 +115,9 @@ namespace TgParse.Migrations
                     b.Property<string>("MessageText")
                         .HasColumnType("text");
 
+                    b.Property<int?>("PlaceId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("СhannelUrl")
                         .HasColumnType("text");
 
@@ -43,10 +126,12 @@ namespace TgParse.Migrations
                     b.HasIndex("MessageId")
                         .IsUnique();
 
+                    b.HasIndex("PlaceId");
+
                     b.ToTable("TgMessages");
                 });
 
-            modelBuilder.Entity("TgParse.MinioUploader+TgPhotos", b =>
+            modelBuilder.Entity("TgParse.Models.TgPhotos", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -67,9 +152,73 @@ namespace TgParse.Migrations
                     b.ToTable("TgPhotos");
                 });
 
-            modelBuilder.Entity("TgParse.MinioUploader+TgPhotos", b =>
+            modelBuilder.Entity("TgParse.Models.WaterType", b =>
                 {
-                    b.HasOne("TgParse.MinioUploader+TgMessages", "Message")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WaterType");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaceFish", b =>
+                {
+                    b.HasOne("TgParse.Models.FishType", "FishType")
+                        .WithMany("FishingPlaceFishes")
+                        .HasForeignKey("FishTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TgParse.Models.FishingPlaces", "FishingPlace")
+                        .WithMany("FishingPlaceFishes")
+                        .HasForeignKey("FishingPlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FishType");
+
+                    b.Navigation("FishingPlace");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaceWater", b =>
+                {
+                    b.HasOne("TgParse.Models.FishingPlaces", "FishingPlaces")
+                        .WithMany("FishingPlaceWaters")
+                        .HasForeignKey("WaterTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TgParse.Models.WaterType", "WaterType")
+                        .WithMany("FishingPlaceWaters")
+                        .HasForeignKey("WaterTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FishingPlaces");
+
+                    b.Navigation("WaterType");
+                });
+
+            modelBuilder.Entity("TgParse.Models.TgMessages", b =>
+                {
+                    b.HasOne("TgParse.Models.FishingPlaces", "Place")
+                        .WithMany("Messages")
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Place");
+                });
+
+            modelBuilder.Entity("TgParse.Models.TgPhotos", b =>
+                {
+                    b.HasOne("TgParse.Models.TgMessages", "Message")
                         .WithMany("Photos")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -78,9 +227,28 @@ namespace TgParse.Migrations
                     b.Navigation("Message");
                 });
 
-            modelBuilder.Entity("TgParse.MinioUploader+TgMessages", b =>
+            modelBuilder.Entity("TgParse.Models.FishType", b =>
+                {
+                    b.Navigation("FishingPlaceFishes");
+                });
+
+            modelBuilder.Entity("TgParse.Models.FishingPlaces", b =>
+                {
+                    b.Navigation("FishingPlaceFishes");
+
+                    b.Navigation("FishingPlaceWaters");
+
+                    b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("TgParse.Models.TgMessages", b =>
                 {
                     b.Navigation("Photos");
+                });
+
+            modelBuilder.Entity("TgParse.Models.WaterType", b =>
+                {
+                    b.Navigation("FishingPlaceWaters");
                 });
 #pragma warning restore 612, 618
         }

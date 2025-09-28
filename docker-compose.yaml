@@ -25,16 +25,6 @@ services:
       dockerfile: Dockerfile
     image: tg-bot-crowdsourcing:latest
     container_name: tg_bot_crowdsourcing
-    environment:
-      - BOT_TOKEN=${BOT_TOKEN}
-      - CHANNEL_ID=${CHANNEL_ID}
-      - ADMIN_ID=${ADMIN_ID}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - PYTHONUNBUFFERED=1
     restart: unless-stopped
 
   parsing_service:
@@ -99,8 +89,6 @@ services:
       - MINIO_SERVER=minio:9000 
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-    # volumes:
-    #   - ./local_images:/images 
     entrypoint: >
       /bin/sh -c "
       #mc alias set myminio http://minio:9000 admin 1lomalsteklo;

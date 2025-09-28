@@ -1,0 +1,131 @@
+﻿  //var imageUrls = new List<string>();
+                //var imageDbUrls = new List<string>();
+                //string? messageTextDb = "";
+
+                //for (int messageId = 16; messageId < maxId; messageId++)
+                //{
+                //    await Task.Delay(500);
+                //    string url = $"https://t.me/{channelName}/{messageId}";                                       
+                //    var metaNode = await TakeHtml(url);
+                //    if (metaNode == null)
+                //    {
+                //        Console.WriteLine($"[DEBUG] Сообщение {messageId}: HTML не получен.");
+                //        continue;
+                //    }
+                //    var metaText = TakeText(metaNode);
+
+                //    byte[]? byteImage = null;                    
+                //    var metaImage = TakeImage(metaNode)?.Attributes["src"]?.Value.Trim();
+                //    byteImage = await GetRequestAsync(metaImage);
+
+                //    //var metaImage = await GetRequestAsync(metaImage);
+
+                //    if (metaText != null && metaText.Attributes["content"] != null)
+                //    {
+                //        string contentValue = metaText.Attributes["content"].Value;
+
+                //        // Условия для текстовых сообщений
+                //        if (contentValue != abouta.Attributes["content"].Value &&
+                //            contentValue != "" &&
+                //            !contentValue.Contains("#реклама") &&
+                //            contentValue.Contains("#"))
+                //        {
+                //            // Выводим накопленные изображения (если есть)
+                //            if (imageUrls.Count > 0)
+                //            {
+                //                foreach (var imageUrl in imageUrls)
+                //                {
+                //                    Console.WriteLine(imageUrl);
+
+                //                }
+                //                if (messageTextDb != "")
+                //                {
+                //                    var message = new TgMessages
+                //                    {
+
+                //                        MessageText = messageTextDb,
+                //                        MessageId = messageId,
+                //                        СhannelUrl = channelName,
+                //                    };
+                //                    foreach (var imageDbUrli in imageDbUrls)
+                //                    {
+                //                        message.Photos?.Add(new TgPhotos { PhotoUrl = imageDbUrli });
+                //                    }
+                //                    using (ApplicationContext db = new())
+                //                    {
+                //                        db.TgMessages.AddRange(message);
+                //                        db.SaveChanges();
+                //                    }
+
+
+
+                //                }
+
+                //                Console.WriteLine();
+                //                imageUrls.Clear();
+                //                imageDbUrls.Clear();
+                //            }
+                //            // Обработка и вывод текста
+                //            string messageText = contentValue.Trim();
+                //            messageText = Regex.Replace(messageText, @"\p{Cs}|\p{So}", "");
+                //            messageText = Regex.Replace(messageText, @"\n|\r|\&quot;|\&#33;|источник", " ");
+                //            messageTextDb = messageText;
+
+                //            Console.WriteLine($"ID: {messageId}; Текст сообщения:");
+                //            Console.WriteLine(messageText);
+
+                //            // Выводим изображение текущего сообщения
+                //            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
+                //            {
+                //                try
+                //                {
+
+                //                    var uploader = new MinioUploader();
+                //                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                //                    imageDbUrls.Add(objectName);
+                //                    Console.WriteLine($"Image: {objectName}");
+                //                }
+                //                catch (Exception ex)
+                //                {
+                //                    Console.WriteLine($"Error: {ex.Message}");
+                //                }
+
+
+
+                //            }
+                //            // Обработка пустых сообщений (только изображения)
+
+                //        }
+                //        else if (contentValue == "")
+                //        {
+                //            if (!string.IsNullOrEmpty(metaImage) && !(await DetectPersonAsync(byteImage)))
+                //            {
+                //                try
+                //                {
+                //                    var uploader = new MinioUploader();
+                //                    var objectName = await uploader.UploadImage(byteImage, "image/jpeg");
+                //                    imageUrls.Add(objectName);
+                //                    imageDbUrls.Add(objectName);
+
+                //                }
+                //                catch (Exception ex)
+                //                {
+                //                    Console.WriteLine($"Error: {ex.Message}");
+                //                }
+
+                //            }
+                //        }
+                //    }
+
+
+                //}
+
+                //// Вывод оставшихся изображений после цикла
+                //if (imageUrls.Count > 0)
+                //{
+                //    foreach (var imageUrl in imageUrls)
+                //    {
+                //        Console.WriteLine(imageUrl);
+                //    }
+                //    Console.WriteLine();
+                //}
