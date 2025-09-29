@@ -1,7 +1,7 @@
 """
 Клавиатуры для пользователей
 """
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     """Главное меню пользователя"""
@@ -9,6 +9,18 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📝 Создать пост", callback_data="create_post")],
         [InlineKeyboardButton(text="ℹ️ Информация", callback_data="info")]
     ])
+    return keyboard
+
+def get_persistent_keyboard() -> ReplyKeyboardMarkup:
+    """Постоянная клавиатура внизу экрана (всегда видна)"""
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📝 Создать пост")],
+            [KeyboardButton(text="ℹ️ Информация")]
+        ],
+        resize_keyboard=True,  # Автоматически подстраивает размер кнопок
+        persistent=True  # Клавиатура остаётся видимой всегда
+    )
     return keyboard
 
 def get_cancel_keyboard() -> InlineKeyboardMarkup:

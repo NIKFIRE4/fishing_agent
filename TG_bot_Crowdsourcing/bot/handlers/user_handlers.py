@@ -9,9 +9,11 @@ import time
 from bot.states.states import PostStates
 from bot.keyboards.user_keyboards import (
     get_cancel_keyboard, get_photos_keyboard, 
-    get_confirm_keyboard, get_main_menu_keyboard
+    get_confirm_keyboard, get_main_menu_keyboard,
+    get_persistent_keyboard
 )
 from config import ADMIN_ID
+from datetime import datetime
 from bot.services.post_service import PostService
 from bot.services.moderation_service import ModerationService
 from bot.utils.helpers import validate_date
@@ -22,16 +24,54 @@ router = Router()
 
 def is_admin(user_id: int) -> bool:
     return user_id in admin.ADMIN_IDS
+@router.message(F.text == "📝 Создать пост")
+async def text_create_post(message: Message, state: FSMContext):
+    """Обработчик текстовой кнопки 'Создать пост'"""
+    today_date = datetime.now().strftime("%d.%m.%Y")
+    
+    await message.answer(
+        "📅 Давайте создадим пост о вашем походе!\n\n"
+        "Для начала укажите **дату похода** в формате **ДД.ММ.ГГГГ**\n"
+        f"Например: `{today_date}`",
+        reply_markup=get_cancel_keyboard(),
+        parse_mode="Markdown"
+    )
+    
+    await state.set_state(PostStates.waiting_for_date)
+@router.message(F.text == "ℹ️ Помощь")
+async def text_help(message: Message, state: FSMContext):
+    """Обработчик текстовой кнопки 'Помощь'"""
+    help_text = (
+        "ℹ️ **Справка**\n\n"
+        "Этот бот помогает создавать посты о походах.\n\n"
+        "**Как создать пост:**\n"
+        "1. Нажмите 📝 Создать пост\n"
+        "2. Укажите дату похода\n"
+        "3. Загрузите фото/видео\n"
+        "4. Укажите название места\n"
+        "5. Добавьте описание\n"
+        "6. Укажите координаты\n"
+        "7. Отправьте на модерацию\n\n"
+        "После проверки администратором ваш пост будет опубликован!"
+    )
+    await message.answer(
+        help_text,
+        reply_markup=get_persistent_keyboard(),
+        parse_mode="Markdown"
+    )
 
 @router.callback_query(F.data == "create_post")
 async def start_post_creation(callback: CallbackQuery, state: FSMContext):
     """Начинает процесс создания поста"""
     await callback.answer()
     
+    # Получаем сегодняшнюю дату в нужном формате
+    today_date = datetime.now().strftime("%d.%m.%Y")
+    
     await callback.message.edit_text(
         "📅 Давайте создадим пост о вашем походе!\n\n"
         "Для начала укажите **дату похода** в формате **ДД.ММ.ГГГГ**\n"
-        "Например: `15.09.2025`",
+        f"Например: `{today_date}`",
         reply_markup=get_cancel_keyboard(),
         parse_mode="Markdown"
     )
@@ -46,10 +86,13 @@ async def process_date(message: Message, state: FSMContext):
     date_obj = validate_date(message.text)
     
     if not date_obj:
+        # Получаем сегодняшнюю дату для примера в сообщении об ошибке
+        today_date = datetime.now().strftime("%d.%m.%Y")
+        
         await message.answer(
             "❌ Неверный формат даты!\n"
             "Пожалуйста, используйте формат **ДД.ММ.ГГГГ**\n"
-            "Например: `15.09.2025`",
+            f"Например: `{today_date}`",
             reply_markup=get_cancel_keyboard(),
             parse_mode="Markdown"
         )
@@ -347,7 +390,7 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
         user=callback.from_user,
         date=data['date'],
         photos=data.get('photos', []),
-        videos=data.get('videos', []),  # Добавляем видео
+        videos=data.get('videos', []),
         location_name=data['location_name'],
         location_description=data['location_description'],
         coordinates=data['coordinates']
@@ -357,10 +400,16 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     moderation_service = ModerationService(bot)
     await moderation_service.send_to_moderation(post_id, post_data)
     
-    # Уведомляем пользователя
-    await callback.message.edit_text(
+    # Удаляем предыдущее сообщение (с inline-кнопками)
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Отправляем новое сообщение с постоянной клавиатурой
+    await callback.message.answer(
         MESSAGES["post_created"],
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_persistent_keyboard()
     )
     
     await state.clear()

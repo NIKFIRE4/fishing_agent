@@ -145,11 +145,21 @@ async def show_moderation_queue(callback: CallbackQuery):
     stats = PostService.get_statistics()
     
     if stats['total_posts'] == 0:
-        await callback.message.edit_text(
-            "ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
-            "Нет постов, ожидающих модерации.",
-            reply_markup=get_back_to_admin_keyboard()
-        )
+        # Попытаемся отредактировать, если не получится - отправим новое
+        try:
+            await callback.message.edit_text(
+                "ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
+                "Нет постов, ожидающих модерации.",
+                reply_markup=get_back_to_admin_keyboard()
+            )
+        except:
+            # Если редактирование не удалось, отправляем новое сообщение
+            await callback.message.bot.send_message(
+                chat_id=callback.from_user.id,
+                text="ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
+                     "Нет постов, ожидающих модерации.",
+                reply_markup=get_back_to_admin_keyboard()
+            )
         return
     
     # Показываем первый пост в очереди
