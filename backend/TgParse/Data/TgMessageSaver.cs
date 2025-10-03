@@ -21,7 +21,7 @@ namespace TgParse.Data
                 {
                     MessageText = messageText,
                     MessageId = messageId,
-                    СhannelUrl = channelName,
+                    SourceUrl = channelName,
                 };
                 bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
                 if (exists)

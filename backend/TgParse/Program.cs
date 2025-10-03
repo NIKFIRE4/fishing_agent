@@ -51,14 +51,6 @@ namespace TgParse
                 options.TemporaryFilesFolder = Path.GetTempPath();
             });
 
-
-            Console.WriteLine("FFmpeg dir: " + Path.Combine(AppContext.BaseDirectory, "FFmpeg"));
-            Console.WriteLine("ffmpeg exists: " + File.Exists(Path.Combine(AppContext.BaseDirectory, "FFmpeg", "ffmpeg.exe")));
-            Console.WriteLine("ffprobe exists: " + File.Exists(Path.Combine(AppContext.BaseDirectory, "FFmpeg", "ffprobe.exe")));
-            Console.WriteLine("System ffmpeg exists: " + File.Exists("/usr/bin/ffmpeg"));
-            Console.WriteLine("System ffprobe exists: " + File.Exists("/usr/bin/ffprobe"));
-
-
             await TelegramParser.RunApplication();           
         }
     } 

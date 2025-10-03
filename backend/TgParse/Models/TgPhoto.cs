@@ -1,10 +1,13 @@
-﻿namespace TgParse.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TgParse.Models
 {
     public class TgPhotos
     {
-        public int Id { get; set; }
+        [Key]
+        public int IdTgPhotos { get; set; }
         public string? PhotoUrl { get; set; }
-        public int MessageId { get; set; }
-        public TgMessages? Message { get; set; }
+        public int IdTgMessage { get; set; }
+        public TgMessages? Messages { get; set; }
     }
 }

@@ -47,12 +47,11 @@ services:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
       - TELEGRAM_PHONE_NUMBER=${TELEGRAM_PHONE_NUMBER}
-      
     ports:
       - "8002:80"
 
     volumes:
-      - ./wtelegram:/app/wtelegram
+      - ./wtelegram:/App/wtelegram
     depends_on:
       ml_service:
         condition: service_started
