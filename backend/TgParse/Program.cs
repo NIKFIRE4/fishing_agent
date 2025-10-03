@@ -1,9 +1,9 @@
-﻿using FFMpegCore;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using TgParse.Data;
-using TgParse.Services;
 
 
 namespace TgParse
@@ -32,26 +32,50 @@ namespace TgParse
 
         static async Task Main(string[] args)
         {
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            var serviceProvider = serviceCollection.BuildServiceProvider();
+            //var serviceCollection = new ServiceCollection();
+            //ConfigureServices(serviceCollection);
+            //var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            using (var scope = serviceProvider.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-                ApplyMigrations(context);
-            }
-            using ApplicationContext db = new();
+            //using (var scope = serviceProvider.CreateScope())
+            //{
+            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+            //    ApplyMigrations(context);
+            //}
+            //using ApplicationContext db = new();
 
 
 
-            GlobalFFOptions.Configure(options =>
-            {
-                options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
-                options.TemporaryFilesFolder = Path.GetTempPath();
-            });
+            //GlobalFFOptions.Configure(options =>
+            //{
+            //    options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
+            //    options.TemporaryFilesFolder = Path.GetTempPath();
+            //});
 
-            await TelegramParser.RunApplication();           
+            //await TelegramParser.RunApplication();
+            //
+
+
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+
+            builder.Services.AddControllers();
+            builder.Services.AddOpenApi();
+
+            var app = builder.Build();
+
+
+            
+                app.MapOpenApi();
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            
+
+           
+                     
+            app.Run();
         }
-    } 
+
+    }
+     
 }
