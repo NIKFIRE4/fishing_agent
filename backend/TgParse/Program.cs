@@ -58,21 +58,30 @@ namespace TgParse
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-
+            builder.Services.AddDbContext<ApplicationContext>();
+            
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
 
             var app = builder.Build();
+            //using (var scope = app.Services.CreateScope())
+            //{
+            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+            //    context.Database.Migrate();
+            //}
 
 
-            
-                app.MapOpenApi();
+            app.MapOpenApi();
                 app.UseSwagger();
                 app.UseSwaggerUI();
+
+            app.UseHttpsRedirection();
+
             
 
-           
-                     
+            app.MapControllers();
+
+
             app.Run();
         }
 

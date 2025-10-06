@@ -13,8 +13,7 @@ namespace TgParse.Data
         public DbSet<Regions> Regions { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            //var connectionString = "Host=localhost;Port=5432;Database=FishingAgent;Username=postgres;Password=1lomalsteklo";
+        {            
             var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
             ?? "${DB_CONNECTION_STRING}"
             ;
