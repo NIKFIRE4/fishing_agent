@@ -83,46 +83,48 @@ async def compare_fishing_places(request: MessageRequest):
         target_names = short_message.get("name_place", [])
         if not target_names:
             raise HTTPException(status_code=400, detail="Не указано ни одного места для сравнения")
-        target_name = target_names[0] 
+        target_name = target_names[0]
 
         target_coords = short_message.get("coordinates")
         if not target_coords:
             target_coords = await geocode_name_to_coords(target_name)
 
         fishing_places = await fetch_fishing_places()
-                  
+        
+        # Проверяем каждое место
         for place in fishing_places:
             name = place.get("name_place", [None])[0]
-            coords = place.get("coordinates", [])
-
-            if not coords:
-                try:
-                    coords = await geocode_name_to_coords(name)
-                except ValueError:
-                    continue
-
+            
+            # Сначала проверка по названию
             if get_similarity(target_name, name):
-                short_description = analyzer.analyze_existing_places(place.get("description", "None") + request.message)
-                return JSONResponse(content={
-                    "new_place": False,
-                    "name_place": place.get("name_place"),
-                    "coordinates": coords,
-                    "short_description": short_description,
-                    "description": place.get("description", "None") + request.message,
-                })
+                # Если названия совпали, проверяем расстояние
+                coords = place.get("coordinates", [])
+                if not coords:
+                    try:
+                        coords = await geocode_name_to_coords(name)
+                    except ValueError:
+                        continue
+                
+                route = await get_route(start_coord=coords, end_coord=target_coords)
+                distance = route.get('distance_km', float('inf'))
+                
+                # Если расстояние меньше 2 км, это то же самое место
+                if distance < 2:
+                    short_description = analyzer.analyze_existing_places(
+                        place.get("description", "None") + " " + request.message
+                    )
+                    return JSONResponse(content={
+                        "new_place": False,
+                        "name_place": place.get("name_place"),
+                        "coordinates": coords,
+                        "short_description": short_description,
+                        "description": place.get("description", "None") + " " + request.message,
+                    })
+                # Если расстояние >= 2 км, продолжаем искать (это разные места с одинаковым названием)
+            
+            # Если название не совпало, это сразу новая локация - переходим к следующему месту
 
-            route = await get_route(start_coord=coords, end_coord=target_coords)
-            if route.get('distance_km') < 2:
-                short_description = analyzer.analyze_existing_places(place.get("description", "None") + request.message)
-                return JSONResponse(content={
-                    "new_place": False,
-                    "name_place": place.get("name_place"),
-                    "coordinates": coords,
-                    "short_description": short_description,
-                    "description": place.get("description", "None") + request.message,
-                })
-
-        # Создание нового места только если ничего не найдено после всех итераций
+        # Если ничего не найдено после всех проверок - создаём новое место
         short_description = analyzer.analyze_existing_places(request.message)
         return JSONResponse(content={
             "new_place": True,
