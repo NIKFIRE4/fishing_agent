@@ -9,7 +9,7 @@ namespace TgParse.Helpers
 {
     public class FFMpeg
     {
-        Process ffmpeg;
+        Process? ffmpeg;
         public void exec(Stream input, Stream output, string parametri)
         {
             ffmpeg = new Process();

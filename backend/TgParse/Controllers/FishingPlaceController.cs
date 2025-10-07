@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TgParse.Data;
 using TgParse.Models;
+using TgParse.Services;
 
 namespace TgParse.Controllers
 {
@@ -17,7 +18,7 @@ namespace TgParse.Controllers
             _context = context;
         }
 
-        // GET: api/places
+
         [HttpGet]
         public async Task<ActionResult<List<PlaceDto>>> GetPlaces()
         {
@@ -28,10 +29,10 @@ namespace TgParse.Controllers
                 .Include(p => p.FishingPlaceWaters)
                     .ThenInclude(fpw => fpw.WaterType)
                 .ToListAsync();
-            
+
             // Преобразуем в DTO для ответа
             var placeDtos = places.Select(p => new PlaceDto
-            {                
+            {
                 id = p.IdFishingPlace,
                 name_place = new List<string> { p.PlaceName ?? "Неизвестно" },
                 coordinates = p.Latitude.HasValue && p.Longitude.HasValue
@@ -49,7 +50,7 @@ namespace TgParse.Controllers
                         .ToList() ?? new List<string>(),
                     water_space = p.FishingPlaceWaters
                         .Select(fpf => fpf.WaterType?.WaterName ?? "Неизвестно")
-                        .Where(name =>  name != null)
+                        .Where(name => name != null)
                         .ToList() ?? new List<string>(),
 
                 },
@@ -57,6 +58,34 @@ namespace TgParse.Controllers
             }).ToList();
 
             return Ok(placeDtos);
+        }
+
+        [HttpPost("pars")]
+        public async Task<IActionResult> Parse([FromBody] ParseRequestDto request)
+        {
+            if (string.IsNullOrEmpty(request?.Message))
+            {
+               
+                return BadRequest(new { Message = "Message cannot be empty" });
+            }
+
+            try
+            {
+                
+                var a = await PlaceComparor.DataConverter(request.Message);
+               
+                return Ok(a);
+            }
+            catch (Exception ex)
+            {
+               
+                return StatusCode(500, new { Message = "Parsing failed", Error = ex.Message });
+            }
+        }
+
+        public class ParseRequestDto
+        {
+            public string? Message { get; set; }
         }
     }
 

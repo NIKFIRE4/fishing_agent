@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using TgParse.Data;
+using Minio.DataModel.Notification;
+using FFMpegCore;
 
 
 namespace TgParse
@@ -45,11 +47,11 @@ namespace TgParse
 
 
 
-            //GlobalFFOptions.Configure(options =>
-            //{
-            //    options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
-            //    options.TemporaryFilesFolder = Path.GetTempPath();
-            //});
+            GlobalFFOptions.Configure(options =>
+            {
+                options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
+                options.TemporaryFilesFolder = Path.GetTempPath();
+            });
 
             //await TelegramParser.RunApplication();
             //
@@ -60,9 +62,10 @@ namespace TgParse
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<ApplicationContext>();
             
+
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
-
+            //builder.Services.AddHostedService<TgParserService>();
             var app = builder.Build();
             //using (var scope = app.Services.CreateScope())
             //{
@@ -72,17 +75,18 @@ namespace TgParse
 
 
             app.MapOpenApi();
-                app.UseSwagger();
-                app.UseSwaggerUI();
+            app.UseSwagger();
+            app.UseSwaggerUI();
 
             app.UseHttpsRedirection();
 
-            
+
 
             app.MapControllers();
 
 
             app.Run();
+            
         }
 
     }

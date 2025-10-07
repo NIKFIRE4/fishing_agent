@@ -4,7 +4,7 @@ from PIL import Image
 from io import BytesIO
 from ultralytics import YOLO
 import httpx
-BACKEND_URL = "http://localhost:8002"
+BACKEND_URL = "http://parsing_service:8002/api/Places"
 async def fetch_fishing_places() -> list[dict]:
     async with httpx.AsyncClient() as client:
         resp = await client.get(BACKEND_URL, timeout=10.0)

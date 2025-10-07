@@ -1,0 +1,5 @@
+﻿bin/
+obj/
+.git/
+*.user
+*.vs
