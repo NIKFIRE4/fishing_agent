@@ -3,52 +3,29 @@ using System.Text.RegularExpressions;
 using TgParse.Data;
 using TgParse.Helpers;
 using TgParse.Models;
-using WTelegram;
 using TL;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TgParse.Services
 {
     public class TelegramParser
     {
-        static async Task<List<byte[]>> ProcessMessageMedia(WTelegram.Client client, Message msg)
-        {
-            var images = new List<byte[]>();
-            try
-            {
-                if (msg.media is MessageMediaPhoto { photo: Photo photo })
-                {
-                    using var stream = new MemoryStream();
-                    await client.DownloadFileAsync(photo, stream);
-                    images.Add(stream.ToArray());
-                }
-                else if (msg.media is MessageMediaDocument { document: Document document })
-                {
-                    if (document.mime_type.StartsWith("image/"))
-                    {
-                        using var stream = new MemoryStream();
-                        await client.DownloadFileAsync(document, stream);
-                        images.Add(stream.ToArray());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Ошибка при обработке медиа для сообщения ID {msg.id}: {ex.Message}");
-            }
-            return images;
-        }
-
+        
         static string? Config(string what)
         {
             switch (what)
             {
-                case "api_id": return Environment.GetEnvironmentVariable("TELEGRAM_API_ID");
-                case "api_hash": return Environment.GetEnvironmentVariable("TELEGRAM_API_HASH");
-                case "phone_number": return Environment.GetEnvironmentVariable("TELEGRAM_PHONE_NUMBER");
+                case "api_id": return Environment.GetEnvironmentVariable("TELEGRAM_API_ID") ?? "${TELEGRAM_API_ID}";
+                case "api_hash": return Environment.GetEnvironmentVariable("TELEGRAM_API_HASH") ?? "${TELEGRAM_API_HASH}";
+                case "phone_number": return Environment.GetEnvironmentVariable("TELEGRAM_PHONE_NUMBER") ?? "${TELEGRAM_PHONE_NUMBER}";
                 case "verification_code":
                     Console.WriteLine("Введите код: ");
                     return Console.ReadLine();
-                case "session_pathname": return "/app/wtelegram/wtelegram.session";
+                case "session_pathname":
+                    string basePath = Directory.GetCurrentDirectory(); // Получаем текущую директорию
+                    string sessionFolder = Path.Combine(basePath, "wtelegram"); // Папка wtelegram в текущей директории
+                    Directory.CreateDirectory(sessionFolder); // Создаем папку, если она не существует
+                    return Path.Combine(sessionFolder, "wtelegram.session"); ;
                 case "server": return "149.154.167.50:443";
                 default: return null;
             }
@@ -63,6 +40,7 @@ namespace TgParse.Services
             var offset_id = 100;
             string channelName = "rybalka_spb_lenoblasti";
             string aboutUrl = $"https://t.me/{channelName}";
+            
             try
             {
                 // Попытка входа
@@ -77,6 +55,24 @@ namespace TgParse.Services
                 }
                 Console.WriteLine($"[DEBUG] Канал {channelName} найден: ID={channel.ID}");
 
+                //var messagesRespons = await client.Messages_GetHistory(channel, 18438, limit: 100);
+                //var messageBatc = messagesRespons.Messages.OfType<Message>().OrderBy(m => m.id).ToList();
+                //foreach (var msgBas in messageBatc)
+                //{
+                //    if (msgBas is Message msga)
+                //    {
+                //        var imageBytesList = await ProcessMedia.ProcessMessageMedia(client, msga);                       
+                //        Console.WriteLine($"{msga.id} {imageBytesList.Count}");
+                //        var uploader = new MinioUploader();
+                //        foreach (var image in imageBytesList) 
+                //        {
+                //            string uniqueId = Guid.NewGuid().ToString("N");
+                //            await uploader.UploadImage(image, $"{msga.id}_test_{uniqueId}", "image/jpeg");
+                //        }
+                          
+                        
+                //    }
+                //}
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
                 var aboutHtml = await HttpHelper.TakeHtml(aboutUrl);
@@ -154,7 +150,7 @@ namespace TgParse.Services
                 var messageImages = new Dictionary<long, List<byte[]>>();
                 var allMessages = new List<Message>();
                 while (offset_id < maxId + 100)
-                {
+                {                  
                     Console.WriteLine($"ID:::{offset_id}");
                     var messagesResponse = await client.Messages_GetHistory(channel, offset_id, limit: 100);
 
@@ -189,7 +185,7 @@ namespace TgParse.Services
                                 messageDbText = messageText;
                                 messageDbId = msgBase.id;
                             }
-                            var imageBytesList = await ProcessMessageMedia(client, msg);
+                            var imageBytesList = await ProcessMedia.ProcessMessageMedia(client, msg);
 
                             foreach (var imageBytes in imageBytesList)
                             {

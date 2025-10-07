@@ -1,7 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using TgParse.Data;
-using TgParse.Services;
+using Minio.DataModel.Notification;
+using FFMpegCore;
+
 
 namespace TgParse
 {
@@ -28,26 +33,62 @@ namespace TgParse
         }
 
         static async Task Main(string[] args)
-        {            
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            var serviceProvider = serviceCollection.BuildServiceProvider();
+        {
+            //var serviceCollection = new ServiceCollection();
+            //ConfigureServices(serviceCollection);
+            //var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            using (var scope = serviceProvider.CreateScope())
+            //using (var scope = serviceProvider.CreateScope())
+            //{
+            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+            //    ApplyMigrations(context);
+            //}
+            //using ApplicationContext db = new();
+
+
+
+            GlobalFFOptions.Configure(options =>
             {
-                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-                ApplyMigrations(context);
-            }
-            using ApplicationContext db = new();
+                options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "FFmpeg");
+                options.TemporaryFilesFolder = Path.GetTempPath();
+            });
 
-            var messageText = db.TgMessages
-        .Where(m => m.MessageId == 123)
-        .Select(m => m.MessageText)
-        .FirstOrDefault();
-            var response = await PlaceComparor.DataConverter(messageText);
-            Console.WriteLine(response);
             //await TelegramParser.RunApplication();
+            //
+
+
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+            builder.Services.AddDbContext<ApplicationContext>();
+            
+
+            builder.Services.AddControllers();
+            builder.Services.AddOpenApi();
+            //builder.Services.AddHostedService<TgParserService>();
+            var app = builder.Build();
+            //using (var scope = app.Services.CreateScope())
+            //{
+            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+            //    context.Database.Migrate();
+            //}
+
+
+            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
+            app.UseHttpsRedirection();
+
+
+
+            app.MapControllers();
+
+
+            app.Run();
             
         }
-    } 
+
+    }
+     
 }

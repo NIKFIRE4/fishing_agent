@@ -1,3 +1,7 @@
+x-buildkit: &buildkit
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
 services:
   ml_service:
     env_file:
@@ -10,7 +14,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-    - BACKEND_URL=http://parsing_service:80/
+    - BACKEND_URL=http://parsing_service:8002/api/Places
     - PYTHONUNBUFFERED=1
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8001/health" ]
@@ -36,8 +40,11 @@ services:
     image: fishing-parsing:latest
     container_name: fishing_parsing
     tty: true
+
     stdin_open: true
     environment:
+      - ASPNETCORE_URLS=http://+:8002
+      - ASPNETCORE_ENVIRONMENT=Development
       - MINIO_ENDPOINT=minio:9000
       - MINIO_BUCKET_NAME=images 
       - MINIO_USE_SSL=false
@@ -47,12 +54,11 @@ services:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
       - TELEGRAM_PHONE_NUMBER=${TELEGRAM_PHONE_NUMBER}
-      
     ports:
-      - "8002:80"
+      - "8002:8002"
 
     volumes:
-      - ./wtelegram:/app/wtelegram
+      - ./wtelegram:/App/wtelegram
     depends_on:
       ml_service:
         condition: service_started

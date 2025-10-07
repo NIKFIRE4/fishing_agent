@@ -1,11 +1,14 @@
-﻿namespace TgParse.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TgParse.Models
 {
     public class FishingPlaceWater
     {
-        public int FishingPlaceId { get; set; }
+        [Key]
+        public int IdFishingPlace { get; set; }
         public FishingPlaces? FishingPlaces { get; set; }
 
-        public int WaterTypeId { get; set; }
+        public int IdWaterType { get; set; }
         public WaterType? WaterType { get; set; }
     }
 }
