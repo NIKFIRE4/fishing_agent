@@ -7,7 +7,6 @@
 /.env
 /local_images
 /minio_data
-/backend/TgParse/Migrations
 ../bin/*
 /backend/TgParse/obj/Debug/net9.0/TgParse.GeneratedMSBuildEditorConfig.editorconfig
 /backend/TgParse/obj/TgParse.csproj.nuget.g.props
