@@ -169,7 +169,7 @@ namespace TgParse.Services
                         if (msgBase is Message msg)
                         {
                             string messageText = msgBase.message ?? "<пустое сообщение>";
-                            if (messageText != null && !messageText.Contains("#реклама") && messageText != "")
+                            if (messageText != null && !messageText.Contains("#реклама") && messageText != "" && messageText.Contains("#"))
                             {
                                 if (messageDbText != "")
                                 {

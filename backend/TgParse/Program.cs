@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using TgParse.Data;
+using TgParse.Services;
 using Minio.DataModel.Notification;
 using FFMpegCore;
+using TL;
 
 
 namespace TgParse
@@ -62,10 +64,11 @@ namespace TgParse
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<ApplicationContext>();
-            
+            builder.Services.AddScoped<MessageComparor>();
 
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
+            
             //builder.Services.AddHostedService<TgParserService>();
             var app = builder.Build();
             //using (var scope = app.Services.CreateScope())

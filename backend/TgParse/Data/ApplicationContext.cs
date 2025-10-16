@@ -12,6 +12,8 @@ namespace TgParse.Data
         public DbSet<FishType> FishType { get; set; }
         public DbSet<WaterType> WaterType { get; set; }
         public DbSet<Regions> Regions { get; set; }
+        public DbSet<FishingPlaceFish> FishingPlaceFish { get; set; }
+        public DbSet<FishingPlaceWater> FishingPlaceWater { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -73,6 +75,10 @@ namespace TgParse.Data
             modelBuilder.Entity<TgMessages>()
                 .HasIndex(m => m.MessageId)
                 .IsUnique();
+
+            modelBuilder.Entity<TgMessages>()
+                .Property(m => m.IsProcessed)
+                .HasDefaultValue(false);
 
             modelBuilder.Entity<FishType>()
                 .HasIndex(ft => ft.FishName)
