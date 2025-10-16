@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using TgParse.Data;
+using TgParse.Services;
 using Minio.DataModel.Notification;
 using FFMpegCore;
+using TL;
 
 
 namespace TgParse
@@ -32,18 +34,19 @@ namespace TgParse
             }
         }
 
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
-            //var serviceCollection = new ServiceCollection();
-            //ConfigureServices(serviceCollection);
-            //var serviceProvider = serviceCollection.BuildServiceProvider();
+            DotNetEnv.Env.Load();
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            //using (var scope = serviceProvider.CreateScope())
-            //{
-            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-            //    ApplyMigrations(context);
-            //}
-            //using ApplicationContext db = new();
+            using (var scope = serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+                ApplyMigrations(context);
+            }
+            using ApplicationContext db = new();
 
 
 
@@ -61,10 +64,11 @@ namespace TgParse
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<ApplicationContext>();
-            
+            builder.Services.AddScoped<MessageComparor>();
 
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
+            
             //builder.Services.AddHostedService<TgParserService>();
             var app = builder.Build();
             //using (var scope = app.Services.CreateScope())
