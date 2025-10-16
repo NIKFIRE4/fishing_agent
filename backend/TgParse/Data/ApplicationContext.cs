@@ -1,22 +1,25 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿
+using Microsoft.EntityFrameworkCore;
 using TgParse.Models;
 
 namespace TgParse.Data
-{    
+{
     public class ApplicationContext : DbContext
     {
         public DbSet<TgMessages> TgMessages { get; set; }
         public DbSet<TgPhotos> TgPhotos { get; set; }
-        public DbSet<FishingPlaces> FishingPlaces { get; set; }   
+        public DbSet<Places> Places { get; set; }
         public DbSet<FishType> FishType { get; set; }
         public DbSet<WaterType> WaterType { get; set; }
         public DbSet<Regions> Regions { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {            
-            var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-            ?? "${DB_CONNECTION_STRING}"
-            ;
+        {
+            var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException($"Переменная окружения DB_CONNECTION_STRING не задана {connectionString}.");
+            }
 
             optionsBuilder.UseNpgsql(connectionString);
         }
@@ -35,7 +38,7 @@ namespace TgParse.Data
                 .HasForeignKey(m => m.IdRegion)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<FishingPlaces>()
+            modelBuilder.Entity<Places>()
                 .HasMany(fp => fp.Messages)
                 .WithOne(m => m.Place)
                 .HasForeignKey(m => m.PlaceId)
@@ -52,7 +55,7 @@ namespace TgParse.Data
             modelBuilder.Entity<FishingPlaceFish>()
                 .HasOne(fpf => fpf.FishType)
                 .WithMany(ft => ft.FishingPlaceFishes)
-                .HasForeignKey(fpf =>  fpf.IdFishType);
+                .HasForeignKey(fpf => fpf.IdFishType);
 
             modelBuilder.Entity<FishingPlaceWater>()
                 .HasKey(fpw => new { fpw.IdFishingPlace, fpw.IdWaterType });
@@ -83,8 +86,8 @@ namespace TgParse.Data
                 .HasIndex(m => m.RegionName)
                 .IsUnique();
 
-            modelBuilder.Entity<FishingPlaces>()
-                .HasIndex(m => m.IdFishingPlace)
+            modelBuilder.Entity<Places>()
+                .HasIndex(m => m.IdPlace)
                 .IsUnique();
         }
     }

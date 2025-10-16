@@ -24,14 +24,11 @@ namespace TgParse.Services
 
             Console.WriteLine(content.SerializeToString());
             // Отправка POST-запроса
-            Console.WriteLine("1 ОК");
             
             HttpResponseMessage response = await client.PostAsync("compare_fishing_places", content);
-            Console.WriteLine("2 ОК");
             // Чтение ответа
             if (response.IsSuccessStatusCode)
-            {
-                Console.WriteLine("3 ОК");
+            {                
                 string responseBody = await response.Content.ReadAsStringAsync();
 
                 JsonDocument doc = JsonDocument.Parse(responseBody);

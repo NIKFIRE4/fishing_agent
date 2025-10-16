@@ -32,18 +32,19 @@ namespace TgParse
             }
         }
 
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
-            //var serviceCollection = new ServiceCollection();
-            //ConfigureServices(serviceCollection);
-            //var serviceProvider = serviceCollection.BuildServiceProvider();
+            DotNetEnv.Env.Load();
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            //using (var scope = serviceProvider.CreateScope())
-            //{
-            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-            //    ApplyMigrations(context);
-            //}
-            //using ApplicationContext db = new();
+            using (var scope = serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+                ApplyMigrations(context);
+            }
+            using ApplicationContext db = new();
 
 
 

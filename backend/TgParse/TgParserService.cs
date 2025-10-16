@@ -28,19 +28,18 @@ namespace TgParse
                 {
                     _logger.LogInformation("Starting parsing at {Time}", DateTime.UtcNow);
 
-                    // Вызов парсинга
                     await PlaceComparor.DataConverter(
                         "21.06.25🚩 Река Фонтанка Три судачка, окунь и два схода примерно за час, а дальше начался ливень.🧭 Координаты локации: 59.937886, 30.342723 #малыереки #судак #окунь #рыбалкаисточник (https://vk.com/wall-78578788_72603)");
 
                     _logger.LogInformation("Parsing completed at {Time}", DateTime.UtcNow);
 
-                    // Задержка перед следующим запуском (например, 1 час)
+
                     await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error during parsing");
-                    // Задержка перед повторной попыткой, чтобы не зациклиться
+
                     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
                 }
             }

@@ -16,7 +16,7 @@ namespace TgParse.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.6")
+                .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -70,13 +70,13 @@ namespace TgParse.Migrations
                     b.ToTable("FishingPlaceWater");
                 });
 
-            modelBuilder.Entity("TgParse.Models.FishingPlaces", b =>
+            modelBuilder.Entity("TgParse.Models.Places", b =>
                 {
-                    b.Property<int>("IdFishingPlace")
+                    b.Property<int>("IdPlace")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdFishingPlace"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdPlace"));
 
                     b.Property<decimal?>("Latitude")
                         .HasColumnType("numeric");
@@ -90,12 +90,15 @@ namespace TgParse.Migrations
                     b.Property<string>("PlaceName")
                         .HasColumnType("text");
 
-                    b.HasKey("IdFishingPlace");
+                    b.Property<string>("PlaceType")
+                        .HasColumnType("text");
 
-                    b.HasIndex("IdFishingPlace")
+                    b.HasKey("IdPlace");
+
+                    b.HasIndex("IdPlace")
                         .IsUnique();
 
-                    b.ToTable("FishingPlaces");
+                    b.ToTable("Places");
                 });
 
             modelBuilder.Entity("TgParse.Models.Regions", b =>
@@ -200,7 +203,7 @@ namespace TgParse.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TgParse.Models.FishingPlaces", "FishingPlace")
+                    b.HasOne("TgParse.Models.Places", "FishingPlace")
                         .WithMany("FishingPlaceFishes")
                         .HasForeignKey("IdFishingPlace")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -213,7 +216,7 @@ namespace TgParse.Migrations
 
             modelBuilder.Entity("TgParse.Models.FishingPlaceWater", b =>
                 {
-                    b.HasOne("TgParse.Models.FishingPlaces", "FishingPlaces")
+                    b.HasOne("TgParse.Models.Places", "FishingPlaces")
                         .WithMany("FishingPlaceWaters")
                         .HasForeignKey("IdFishingPlace")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -237,7 +240,7 @@ namespace TgParse.Migrations
                         .HasForeignKey("IdRegion")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("TgParse.Models.FishingPlaces", "Place")
+                    b.HasOne("TgParse.Models.Places", "Place")
                         .WithMany("Messages")
                         .HasForeignKey("PlaceId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -263,7 +266,7 @@ namespace TgParse.Migrations
                     b.Navigation("FishingPlaceFishes");
                 });
 
-            modelBuilder.Entity("TgParse.Models.FishingPlaces", b =>
+            modelBuilder.Entity("TgParse.Models.Places", b =>
                 {
                     b.Navigation("FishingPlaceFishes");
 
