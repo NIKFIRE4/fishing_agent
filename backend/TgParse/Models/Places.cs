@@ -2,14 +2,15 @@
 
 namespace TgParse.Models
 {
-    public class FishingPlaces
+    public class Places
     {
         [Key] 
-        public int IdFishingPlace { get; set; }
+        public int IdPlace { get; set; }
         public string? PlaceName{ get; set; }
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public string? PlaceDescription { get; set; }
+        public string? PlaceType { get; set; }
 
         public List<FishingPlaceWater> FishingPlaceWaters { get; set; } = new List<FishingPlaceWater>();
         public List<FishingPlaceFish> FishingPlaceFishes { get; set; } = new List<FishingPlaceFish>();

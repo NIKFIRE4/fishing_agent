@@ -23,7 +23,7 @@ namespace TgParse.Controllers
         public async Task<ActionResult<List<PlaceDto>>> GetPlaces()
         {
             // Загружаем все места с связанными данными (рыбы и водоёмы)
-            var places = await _context.FishingPlaces
+            var places = await _context.Places
                 .Include(p => p.FishingPlaceFishes)
                     .ThenInclude(fpf => fpf.FishType)
                 .Include(p => p.FishingPlaceWaters)
@@ -33,7 +33,7 @@ namespace TgParse.Controllers
             // Преобразуем в DTO для ответа
             var placeDtos = places.Select(p => new PlaceDto
             {
-                id = p.IdFishingPlace,
+                id = p.IdPlace,
                 name_place = new List<string> { p.PlaceName ?? "Неизвестно" },
                 coordinates = p.Latitude.HasValue && p.Longitude.HasValue
                     ? new List<double> { (double)p.Latitude.Value, (double)p.Longitude.Value }

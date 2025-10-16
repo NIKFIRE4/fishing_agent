@@ -1,4 +1,4 @@
-x-buildkit: &buildkit
+﻿x-buildkit: &buildkit
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
 
@@ -29,7 +29,25 @@ services:
       dockerfile: Dockerfile
     image: tg-bot-crowdsourcing:latest
     container_name: tg_bot_crowdsourcing
-    restart: unless-stopped
+    restart: unless-stopped   
+
+  # migrator:
+  #     image: mcr.microsoft.com/dotnet/sdk:9.0
+  #     container_name: fishing_migrator
+  #     environment:
+  #       - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+  #     volumes:
+  #       - ./backend/TgParse:/app
+  #       - ~/.nuget/packages:/root/.nuget/packages
+  #     working_dir: /app
+  #     depends_on:
+  #       db:
+  #         condition: service_healthy
+  #     command: >
+  #       sh -c "
+  #         dotnet tool install --global dotnet-ef &&
+  #         /root/.dotnet/tools/dotnet-ef database update --verbose"
+  
 
   parsing_service:
     env_file:
@@ -56,7 +74,7 @@ services:
       - TELEGRAM_PHONE_NUMBER=${TELEGRAM_PHONE_NUMBER}
     ports:
       - "8002:8002"
-
+   
     volumes:
       - ./wtelegram:/App/wtelegram
     depends_on:
@@ -68,6 +86,8 @@ services:
         condition: service_started    
       db:
         condition: service_healthy
+      # migrator:  
+      #   condition: service_completed_successfully
      
   minio:
     env_file:
