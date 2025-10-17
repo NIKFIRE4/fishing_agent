@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AgentBackend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+36058c5ba7d5c00fb8cfa2191e8d15850ee96a79")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9424f44157f41968c73a4a4d8f8085e441363001")]
 [assembly: System.Reflection.AssemblyProductAttribute("AgentBackend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgentBackend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

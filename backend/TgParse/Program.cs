@@ -8,6 +8,8 @@ using TgParse.Services;
 using Minio.DataModel.Notification;
 using FFMpegCore;
 using TL;
+using StackExchange.Redis;
+using TgParse.Data;
 
 
 namespace TgParse
@@ -17,6 +19,10 @@ namespace TgParse
         private static void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<ApplicationContext>();
+            services.AddSingleton<IConnectionMultiplexer>(sp =>
+                ConnectionMultiplexer.Connect(
+                    $"{Environment.GetEnvironmentVariable("REDIS_HOST")}:{Environment.GetEnvironmentVariable("REDIS_PORT")}," +
+                    $"password={Environment.GetEnvironmentVariable("REDIS_PASSWORD")}"));
         }
 
         private static void ApplyMigrations(ApplicationContext context)
@@ -63,6 +69,7 @@ namespace TgParse
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            //builder.Services.AddSingleton<CacheService>();
             builder.Services.AddDbContext<ApplicationContext>();
             builder.Services.AddScoped<MessageComparor>();
 

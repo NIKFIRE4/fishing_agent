@@ -31,6 +31,18 @@ services:
     container_name: tg_bot_crowdsourcing
     restart: unless-stopped   
 
+  redis:
+      image: redis:latest
+      env_file:
+       - ./backend/.env
+      container_name: redis_cache
+      ports:
+        - "6379:6379"
+      environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      command: redis-server --requirepass ${REDIS_PASSWORD}
+      volumes:
+        - redis_data:/data
   # migrator:
   #     image: mcr.microsoft.com/dotnet/sdk:9.0
   #     container_name: fishing_migrator
@@ -53,8 +65,8 @@ services:
     env_file:
        - ./backend/.env
     build:
-      context: ./backend/TgParse
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: TgParse/Dockerfile
     image: fishing-parsing:latest
     container_name: fishing_parsing
     tty: true
@@ -156,3 +168,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:  
