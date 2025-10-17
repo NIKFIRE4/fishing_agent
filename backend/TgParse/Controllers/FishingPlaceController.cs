@@ -1,9 +1,10 @@
 ﻿using HtmlAgilityPack;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TgParse.Data;
-using TgParse.Models;
+using DBShared;
+using DBShared.Models;
 using TgParse.Services;
+
 
 namespace TgParse.Controllers
 {

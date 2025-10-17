@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using TgParse.Services;
 using TgParse.Helpers;
-using TgParse.Data;
-using TgParse.Models;
+using DBShared;
+using DBShared.Models;
 using System.Text.RegularExpressions;
 
 namespace TgParse

@@ -1,7 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TgParse.Data;
-using TgParse.Models;
+using DBShared.Models;
+using DBShared;
 
 namespace TgParse.Services
 {
