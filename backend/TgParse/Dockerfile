@@ -1,17 +1,23 @@
 ﻿# syntax=docker/dockerfile:1.4
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /app
+#WORKDIR /app
 
 #RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-COPY *.csproj ./
+#COPY . ./
+
+WORKDIR /src
+COPY . .
+WORKDIR /src/TgParse
+
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet restore
+    dotnet restore TgParse.sln
 
 COPY . .
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet publish -c Release -o /app/out
+    dotnet publish ./TgParse/TgParse.csproj -c Release -o /app/out
+
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app

@@ -1,8 +1,8 @@
 ﻿using HtmlAgilityPack;
 using System.Text.RegularExpressions;
+using DBShared;
 using TgParse.Data;
 using TgParse.Helpers;
-using TgParse.Models;
 using TL;
 using static System.Net.Mime.MediaTypeNames;
 

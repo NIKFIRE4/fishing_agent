@@ -1,0 +1,15 @@
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.csproj.AssemblyReference.cache
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.AssemblyInfoInputs.cache
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.AssemblyInfo.cs
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.csproj.CoreCompileInputs.cache
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.sourcelink.json
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\bin\Debug\net9.0\DBShared.deps.json
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\bin\Debug\net9.0\DBShared.runtimeconfig.json
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\bin\Debug\net9.0\DBShared.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\bin\Debug\net9.0\DBShared.pdb
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\refint\DBShared.dll
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.pdb
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\DBShared.genruntimeconfig.cache
+C:\Users\Red1an\Documents\sharp\FishingAgent\fishing_agent\backend\DBShared\obj\Debug\net9.0\ref\DBShared.dll

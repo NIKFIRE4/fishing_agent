@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "HCl140H6UIdPkTHTZKe+bPfv3fBoQr1gdaGSr1YhEBo=",
+  "Source": "AgentBackend",
+  "BasePath": "_content/AgentBackend",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
