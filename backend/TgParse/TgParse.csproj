@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+	<ProjectReference Include="..\DBShared\DBShared.csproj" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="FFMpegCore" Version="5.2.0" />   

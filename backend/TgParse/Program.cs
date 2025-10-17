@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
-using TgParse.Data;
+using DBShared;
 using TgParse.Services;
 using Minio.DataModel.Notification;
 using FFMpegCore;
