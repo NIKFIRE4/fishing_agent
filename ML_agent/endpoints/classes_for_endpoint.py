@@ -10,7 +10,7 @@ class TelegramSearchRequest(BaseModel):
     user_id: int
     query: str
 
-class FishingSpot(BaseModel):
+class Spot(BaseModel):
     name: str
     location_user: List[float]
     description: str
@@ -20,10 +20,19 @@ class FishingSpot(BaseModel):
 
 class TelegramSearchResponse(BaseModel):
     success: bool
-    spots: List[FishingSpot]
+    spots: List[Spot]
     message: Optional[str] = None
     user_location: Optional[str] = None
 
 class BestPlacesRequest(BaseModel):
     target_fish: List[str]    
     water_space: List[str]
+
+class CompareLocationRequest(BaseModel):
+    """Запрос для сравнения места с существующими в базе"""
+    message: str
+    relax_type: str  # "рыбалка", "кемпинг" 
+
+class TelegramSearchRequest(BaseModel):
+    query: str
+    relax_type: Optional[str] = "рыбалка"  # По умолчанию рыбалка
