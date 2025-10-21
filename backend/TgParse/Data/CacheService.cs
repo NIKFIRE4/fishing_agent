@@ -17,7 +17,7 @@ namespace TgParse.Data
 
         public async Task CacheAllPlacesAsync(ApplicationContext db)
         {
-            var places = await db.Places.ToListAsync(); 
+            var places = await db.PlaceVectors.ToListAsync(); 
             string json = JsonSerializer.Serialize(places);
             await _db.StringSetAsync("all_places", json, TimeSpan.FromHours(1)); 
         }
