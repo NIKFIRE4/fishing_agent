@@ -185,7 +185,7 @@ class RelaxAnalyzer:
                 }
                 
                 # Добавляем специфичные для рыбалки поля
-                if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
+                if relax_type in RelaxType.FISHING:
                     output["caught_fishes"] = result.caught_fishes
                     output["water_space"] = result.water_space
             else:
