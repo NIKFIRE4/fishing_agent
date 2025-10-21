@@ -6,16 +6,16 @@ namespace TgParse.Services
 {
     public class PlaceComparor
     {
-        public static async Task<JsonDocument?> DataConverter(string message)
+        public static async Task<JsonDocument?> DataConverter(string tgMessage, string sourseUrl)
         {
-            var jsonObject = new { message };
+            var jsonObject = new { message = tgMessage,  };
             string json = JsonSerializer.Serialize(jsonObject);
 
             using HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://ml_service:8001/");
             HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            Console.WriteLine($"Отправка запроса: {message}");
+            Console.WriteLine($"Отправка запроса: {jsonObject}");
             HttpResponseMessage response = await client.PostAsync("compare_fishing_places", content);
 
             if (response.IsSuccessStatusCode)

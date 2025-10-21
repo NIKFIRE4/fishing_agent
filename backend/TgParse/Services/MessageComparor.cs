@@ -33,8 +33,8 @@ namespace TgParse.Services
             {
                 try
                 {
-                    // Отправляем текст сообщения в ML
-                    var jsonResult = await PlaceComparor.DataConverter(message.MessageText ?? string.Empty);
+                    var jsonResult = await PlaceComparor.DataConverter(message.MessageText ?? string.Empty,
+                        message.SourceUrl ?? string.Empty);
 
                     if (jsonResult == null)
                     {
@@ -44,8 +44,7 @@ namespace TgParse.Services
 
                     // Десериализуем JSON в PlaceResponse
                     var placeResponse = JsonSerializer.Deserialize<PlaceResponse>(jsonResult);
-
-                    if (placeResponse == null || string.IsNullOrEmpty(placeResponse.name_place))
+                    if (placeResponse == null || string.IsNullOrEmpty(placeResponse.NameLocation))
                     {
                         Console.WriteLine($"Ошибка обработки сообщения {message.MessageId}: Некорректный ответ ML.");
                         continue;
@@ -56,11 +55,11 @@ namespace TgParse.Services
 
                     // Ищем место, если new_place = false
                     Places? place = null;
-                    if (!placeResponse.new_place)
+                    if (!placeResponse.NewPlace)
                     {
                         place = await _context.Places
-                            .FirstOrDefaultAsync(p => p.PlaceName == placeResponse.name_place);
-                                                      
+                            .Include(p => p.PlaceVectors)
+                            .FirstOrDefaultAsync(p => p.PlaceName == placeResponse.NameLocation);
                     }
 
                     if (place == null)
@@ -68,31 +67,52 @@ namespace TgParse.Services
                         // Создаём новое место
                         place = new Places
                         {
-                            PlaceName = placeResponse.name_place,
-                            Latitude = placeResponse.coordinates?.Count == 2 ? placeResponse.coordinates[0] : null,
-                            Longitude = placeResponse.coordinates?.Count == 2 ? placeResponse.coordinates[1] : null,
-                            PlaceDescription = placeResponse.description,
-                            PlaceType = "Fishing"
+                            PlaceName = placeResponse.NameLocation,
+                            PlaceType = placeResponse.TypeOfRelax,
+                            Latitude = placeResponse.PlaceCoordinates?.Count == 2 ? placeResponse.PlaceCoordinates[0] : null,
+                            Longitude = placeResponse.PlaceCoordinates?.Count == 2 ? placeResponse.PlaceCoordinates[1] : null,
+                            PlaceDescription = placeResponse.Description,
+                            UserPreferences = placeResponse.UserPreferences,
+                            PlaceVectors = new PlaceVectors
+                            {
+                                NameEmbedding = placeResponse.NameEmbedding,
+                                PreferencesEmbedding = placeResponse.PreferencesEmbedding
+                            }
                         };
                         _context.Places.Add(place);
                     }
                     else
                     {
                         // Перезаписываем существующее место
-                        place.PlaceName = placeResponse.name_place;
-                        place.Latitude = placeResponse.coordinates?.Count == 2 ? placeResponse.coordinates[0] : null;
-                        place.Longitude = placeResponse.coordinates?.Count == 2 ? placeResponse.coordinates[1] : null;
-                        place.PlaceDescription = placeResponse.description;
-                        place.PlaceType = "Fishing";
+                        place.PlaceName = placeResponse.NameLocation;
+                        place.PlaceType = placeResponse.TypeOfRelax;
+                        place.Latitude = placeResponse.PlaceCoordinates?.Count == 2 ? placeResponse.PlaceCoordinates[0] : null;
+                        place.Longitude = placeResponse.PlaceCoordinates?.Count == 2 ? placeResponse.PlaceCoordinates[1] : null;
+                        place.PlaceDescription = placeResponse.Description;
+                        place.UserPreferences = placeResponse.UserPreferences;
 
-                        // Удаляем старые связи
+                        // Обновляем или создаём эмбеддинги
+                        if (place.PlaceVectors == null)
+                        {
+                            place.PlaceVectors = new PlaceVectors
+                            {
+                                NameEmbedding = placeResponse.NameEmbedding,
+                                PreferencesEmbedding = placeResponse.PreferencesEmbedding
+                            };
+                        }
+                        else
+                        {
+                            place.PlaceVectors.NameEmbedding = placeResponse.NameEmbedding;
+                            place.PlaceVectors.PreferencesEmbedding = placeResponse.PreferencesEmbedding;
+                        }
+
+                        // Удаляем старые связи с рыбами и водоёмами
                         var oldFishLinks = await _context.FishingPlaceFish
                             .Where(fpf => fpf.IdFishingPlace == place.IdPlace)
                             .ToListAsync();
                         var oldWaterLinks = await _context.FishingPlaceWater
                             .Where(fpw => fpw.IdFishingPlace == place.IdPlace)
                             .ToListAsync();
-
                         _context.FishingPlaceFish.RemoveRange(oldFishLinks);
                         _context.FishingPlaceWater.RemoveRange(oldWaterLinks);
                     }
@@ -100,11 +120,10 @@ namespace TgParse.Services
                     await _context.SaveChangesAsync(); // Сохраняем место для получения IdPlace
 
                     // Обрабатываем FishType
-                    var caughtFishes = placeResponse.short_description?.caught_fishes ?? new List<string>();
+                    var caughtFishes = placeResponse.CaughtFishes ?? new List<string>();
                     foreach (var fishName in caughtFishes)
                     {
                         if (string.IsNullOrEmpty(fishName)) continue;
-
                         var fishType = await _context.FishType.FirstOrDefaultAsync(ft => ft.FishName == fishName);
                         if (fishType == null)
                         {
@@ -112,7 +131,6 @@ namespace TgParse.Services
                             _context.FishType.Add(fishType);
                             await _context.SaveChangesAsync();
                         }
-
                         _context.FishingPlaceFish.Add(new FishingPlaceFish
                         {
                             IdFishingPlace = place.IdPlace,
@@ -121,11 +139,10 @@ namespace TgParse.Services
                     }
 
                     // Обрабатываем WaterType
-                    var waterSpaces = placeResponse.short_description?.water_space ?? new List<string>();
+                    var waterSpaces = placeResponse.WaterSpace ?? new List<string>();
                     foreach (var waterName in waterSpaces)
                     {
                         if (string.IsNullOrEmpty(waterName)) continue;
-
                         var waterType = await _context.WaterType.FirstOrDefaultAsync(wt => wt.WaterName == waterName);
                         if (waterType == null)
                         {
@@ -133,7 +150,6 @@ namespace TgParse.Services
                             _context.WaterType.Add(waterType);
                             await _context.SaveChangesAsync();
                         }
-
                         _context.FishingPlaceWater.Add(new FishingPlaceWater
                         {
                             IdFishingPlace = place.IdPlace,
@@ -149,8 +165,7 @@ namespace TgParse.Services
                     // Сохраняем все изменения
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
-
-                    Console.WriteLine($"Обработано сообщение {message.MessageId}, место: {place.PlaceName} ({(placeResponse.new_place ? "создано" : "обновлено")})");
+                    Console.WriteLine($"Обработано сообщение {message.MessageId}, место: {place.PlaceName} ({(placeResponse.NewPlace ? "создано" : "обновлено")})");
                 }
                 catch (Exception ex)
                 {
@@ -161,3 +176,4 @@ namespace TgParse.Services
         }
     }
 }
+

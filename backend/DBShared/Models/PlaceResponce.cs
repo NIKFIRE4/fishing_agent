@@ -3,23 +3,40 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace DBShared.Models
 {
-        public class PlaceResponse
-        {
-            public bool new_place { get; set; }
-            public string? name_place { get; set; }
-            public List<decimal>? coordinates { get; set; }
-            public ShortDescription? short_description { get; set; }
-            public string? description { get; set; }
-        }
+    public class PlaceResponse
+    {
+        [JsonPropertyName("new_place")]
+        public bool NewPlace { get; set; }
 
-        public class ShortDescription
-        {
-            public List<string>? name_place { get; set; }
-            public List<decimal>? coordinates { get; set; }
-            public List<string>? caught_fishes { get; set; }
-            public List<string>? water_space { get; set; }
-        }
+        [JsonPropertyName("name_location")]
+        public string? NameLocation { get; set; }
+
+        [JsonPropertyName("name_embedding")]
+        public List<float>? NameEmbedding { get; set; }
+
+        [JsonPropertyName("type_of_relax")]
+        public string? TypeOfRelax { get; set; }
+
+        [JsonPropertyName("user_preferences")]
+        public List<string>? UserPreferences { get; set; }
+
+        [JsonPropertyName("preferences_embedding")]
+        public List<float>? PreferencesEmbedding { get; set; }
+
+        [JsonPropertyName("place_coordinates")]
+        public List<decimal>? PlaceCoordinates { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("caught_fishes")]
+        public List<string>? CaughtFishes { get; set; }
+
+        [JsonPropertyName("water_space")]
+        public List<string>? WaterSpace { get; set; }
+    }
 }
