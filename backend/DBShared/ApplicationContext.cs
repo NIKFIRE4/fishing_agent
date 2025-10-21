@@ -5,13 +5,14 @@ using DBShared.Models;
 namespace DBShared
 {
     public class ApplicationContext : DbContext
-    {
+    {     
         public DbSet<TgMessages> TgMessages { get; set; }
         public DbSet<TgPhotos> TgPhotos { get; set; }
         public DbSet<Places> Places { get; set; }
         public DbSet<FishType> FishType { get; set; }
         public DbSet<WaterType> WaterType { get; set; }
         public DbSet<Regions> Regions { get; set; }
+        public DbSet<PlaceVectors> PlaceVectors { get; set; }
         public DbSet<FishingPlaceFish> FishingPlaceFish { get; set; }
         public DbSet<FishingPlaceWater> FishingPlaceWater { get; set; }
 
@@ -37,7 +38,6 @@ namespace DBShared
             modelBuilder.Entity<Regions>()
                 .HasMany(r => r.Messages)
                 .WithOne(m => m.Region)
-                .HasForeignKey(m => m.IdRegion)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Places>()
@@ -72,6 +72,12 @@ namespace DBShared
                 .WithMany(wt => wt.FishingPlaceWaters)
                 .HasForeignKey(fpw => fpw.IdWaterType);
 
+            modelBuilder.Entity<Places>()
+                .HasOne(p => p.PlaceVectors)
+                .WithOne(pv => pv.Place)
+                .HasForeignKey<PlaceVectors>(pv => pv.IdPlace)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<TgMessages>()
                 .HasIndex(m => m.MessageId)
                 .IsUnique();
@@ -95,6 +101,16 @@ namespace DBShared
             modelBuilder.Entity<Places>()
                 .HasIndex(m => m.IdPlace)
                 .IsUnique();
+
+            modelBuilder.Entity<PlaceVectors>()
+                .Property(pv => pv.NameEmbedding)
+                .HasColumnType("jsonb");
+
+            modelBuilder.Entity<PlaceVectors>()
+                .Property(pv => pv.PreferencesEmbedding)
+                .HasColumnType("jsonb");
+
+            
         }
     }
 }

@@ -14,19 +14,18 @@ namespace TgParse.Data
             _db = redis.GetDatabase();
         }
 
-        // Загрузить все места в кэш
+
         public async Task CacheAllPlacesAsync(ApplicationContext db)
         {
-            var places = await db.Places.ToListAsync(); // Читаем из PostgreSQL
+            var places = await db.Places.ToListAsync(); 
             string json = JsonSerializer.Serialize(places);
-            await _db.StringSetAsync("all_places", json, TimeSpan.FromHours(1)); // TTL 1 час
+            await _db.StringSetAsync("all_places", json, TimeSpan.FromHours(1)); 
         }
 
-        // Обновить кэш при изменениях (вызывай после SaveChanges в EF)
         public async Task InvalidateCacheAsync()
         {
             await _db.KeyDeleteAsync("all_places");
-            // Затем заново загрузить, если нужно
+
         }
     }
 }

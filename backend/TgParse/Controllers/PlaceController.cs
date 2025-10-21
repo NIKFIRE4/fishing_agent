@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using DBShared;
 using DBShared.Models;
 using TgParse.Services;
+using TL.Methods;
 
 
 namespace TgParse.Controllers
@@ -20,9 +21,10 @@ namespace TgParse.Controllers
         }
 
 
-        [HttpGet]
-        public async Task<ActionResult<List<PlaceDto>>> GetPlaces()
+        [HttpPost]
+        public async Task<ActionResult<List<PlaceDto>>> Parse([FromBody] TourismType request)
         {
+
             // Загружаем все места с связанными данными (рыбы и водоёмы)
             var places = await _context.Places
                 .Include(p => p.FishingPlaceFishes)
@@ -66,20 +68,26 @@ namespace TgParse.Controllers
         {
             if (string.IsNullOrEmpty(request?.Message))
             {
-               
+
+                return BadRequest(new { Message = "Message cannot be empty" });
+            }
+
+            if (string.IsNullOrEmpty(request?.TourismType))
+            {
+
                 return BadRequest(new { Message = "Message cannot be empty" });
             }
 
             try
             {
-                
-                var a = await PlaceComparor.DataConverter(request.Message);
-               
+
+                var a = await PlaceComparor.DataConverter(request.Message, request.TourismType);
+
                 return Ok(a);
             }
             catch (Exception ex)
             {
-               
+
                 return StatusCode(500, new { Message = "Parsing failed", Error = ex.Message });
             }
         }
@@ -87,9 +95,14 @@ namespace TgParse.Controllers
         public class ParseRequestDto
         {
             public string? Message { get; set; }
+            public string? TourismType { get; set; }
         }
-    }
 
-   
+        public class TourismType
+        {
+            public string? Message { get; set; }
+        }
+
+    }
     
 }
