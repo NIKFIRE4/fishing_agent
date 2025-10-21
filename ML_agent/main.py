@@ -1,19 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from endpoints.classes_for_endpoint import ImageRequest, MessageRequest, TelegramSearchRequest, TelegramSearchResponse, BestPlacesRequest, FishingSpot
-from endpoints.endpoints_with_backend import fetch_fishing_places, fetch_best_fishing_places
-from my_openrouter_chat import FishingAnalyzer, Model
-from calculate_distance.encoder import get_similarity
+from endpoints.classes_for_endpoint import ImageRequest, MessageRequest, TelegramSearchRequest, TelegramSearchResponse, BestPlacesRequest, Spot, CompareLocationRequest
+from endpoints.endpoints_with_backend import get_all_places_by_type, fetch_best_fishing_places, fetch_places_by_location
+from model_provider import Model
+from relax_analyzer import RelaxAnalyzer, RelaxType
+from calculate_distance.encoder import get_similarity, create_semantic_embedding, get_one_name_embedding
 from calculate_distance.map import get_route, geocode_name_to_coords
-from analyze_and_compare_fish_places import compare_fish_places
+from analyze_and_compare_fish_places import compare_places
 import uvicorn
 import httpx
 from CV_for_person_detect.YOLO_predict import detect_person
 
 app = FastAPI(title="Person Detection API", version="1.0.0")
 model = Model() 
-analyzer = FishingAnalyzer(model)
+analyzer = RelaxAnalyzer(model)
          
 @app.get("/")
 async def root():
@@ -36,13 +37,13 @@ async def detect_person_endpoint(request: ImageRequest):
         raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
     
 
-@app.get("/places_with_fish")
-async def get_fishing_places():
-    try:
-        data = await fetch_fishing_places()
-        return JSONResponse(content=data)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Error: {e}")
+# @app.get("/places_with_fish")
+# async def get_fishing_places():
+#     try:
+#         data = await get_all_places()
+#         return JSONResponse(content=data)
+#     except Exception as e:
+#         raise HTTPException(status_code=502, detail=f"Error: {e}")
     
 
 @app.post("/get_best_places_with_fish")
@@ -58,41 +59,48 @@ async def get_best_fishing_places(request: BestPlacesRequest):
         )
         return JSONResponse(content=places)
     except httpx.HTTPError as exc:
-        # httpx.RequestError и httpx.HTTPStatusError оба наследуются от HTTPError
         raise HTTPException(
             status_code=502,
             detail=f"Ошибка при запросе к API: {exc}"
         )
     
-@app.post("/get_short_description_for_existing_location")
-async def get_short_description_for_existing_location(request: MessageRequest):
-    try:
-        short_message = analyzer.analyze_existing_places(request.message)
-        
-        return JSONResponse(content={
-            "short_message": short_message,
-        })
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"get short description failed: {str(e)}")
 
-@app.post("/compare_fishing_places")
-async def compare_fishing_places(request: MessageRequest):
+@app.post("/compare_location")
+async def compare_location(request: CompareLocationRequest):
+    """
+    Сравнивает место из сообщения пользователя с существующими местами в базе.
+    Поддерживает разные типы отдыха: рыбалка, кемпинг, рыбалка + кемпинг
+    Теперь также создает embedding из user_preferences для семантического поиска.
+    
+    Args:
+        request: CompareLocationRequest с полями message и relax_type
+        
+    Returns:
+        JSON с информацией о месте (новое или существующее) + preferences_embedding
+    """
     try:
-        short_message = analyzer.analyze_existing_places(request.message)
-        target_names = short_message.get("name_place", [])
-        if not target_names:
-            raise HTTPException(status_code=400, detail="Не указано ни одного места для сравнения")
-        target_name = target_names[0]
-
-        target_coords = short_message.get("coordinates")
+        # Определяем тип отдыха
+        relax_type = RelaxType(request.relax_type)
+        
+        # Анализируем сообщение пользователя
+        short_message = analyzer.analyze_existing_place(request.message, relax_type)
+        
+        target_name = short_message.get("name_location")
+        if not target_name:
+            raise HTTPException(status_code=400, detail="Не указано название места")
+        name_embedding = get_one_name_embedding(target_name)
+        target_coords = short_message.get("place_coordinates")
         if not target_coords:
-            target_coords = await geocode_name_to_coords(target_name)
+            try:
+                target_coords = await geocode_name_to_coords(target_name)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Не удалось определить координаты для места: {target_name}")
 
-        fishing_places = await fetch_fishing_places()
+        # Получаем все места из базы
+        places_by_type = await get_all_places_by_type()
         
         # Проверяем каждое место
-        for place in fishing_places:
+        for place in places_by_type:
             name = place.get("name_place", [None])[0]
             
             # Сначала проверка по названию
@@ -110,89 +118,129 @@ async def compare_fishing_places(request: MessageRequest):
                 
                 # Если расстояние меньше 2 км, это то же самое место
                 if distance < 2:
-                    short_description = analyzer.analyze_existing_places(
-                        place.get("description", "None") + " " + request.message
-                    )
-                    return JSONResponse(content={
+                    # Обновляем описание существующего места
+                    updated_description = place.get("description", "") + " " + request.message
+                    updated_short = analyzer.analyze_existing_place(updated_description, relax_type)
+                    
+                    # Получаем user_preferences (список строк)
+                    user_prefs = updated_short.get("user_preferences", [])
+                    name_old_embedding = get_one_name_embedding(name)
+                    # Создаем embedding из списка строк для семантического поиска
+                    preferences_embedding = create_semantic_embedding(user_prefs)
+                    
+                    # Формируем ответ в зависимости от типа отдыха
+                    response_data = {
                         "new_place": False,
-                        "name_place": place.get("name_place"),
-                        "coordinates": coords,
-                        "short_description": short_description,
-                        "description": place.get("description", "None") + " " + request.message,
-                    })
-                # Если расстояние >= 2 км, продолжаем искать (это разные места с одинаковым названием)
-            
-            # Если название не совпало, это сразу новая локация - переходим к следующему месту
+                        "name_location": name,
+                        "name_embedding": name_old_embedding,
+                        "type_of_relax": relax_type.value,
+                        "user_preferences": user_prefs,
+                        "preferences_embedding": preferences_embedding,
+                        "place_coordinates": coords,
+                        "description": updated_description
+                    }
+                    
+                    # Добавляем специфичные поля для рыбалки
+                    if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
+                        response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
+                        response_data["water_space"] = updated_short.get("water_space", [])
+                    
+                    # Добавляем цену если есть
+                    if updated_short.get("wish_price"):
+                        response_data["wish_price"] = updated_short.get("wish_price")
+                    
+                    return JSONResponse(content=response_data)
 
-        # Если ничего не найдено после всех проверок - создаём новое место
-        short_description = analyzer.analyze_existing_places(request.message)
-        return JSONResponse(content={
+        # Если ничего не найдено - создаём новое место
+        user_prefs = short_message.get("user_preferences", [])
+        
+        # Создаем embedding из списка строк для семантического поиска
+        preferences_embedding = create_semantic_embedding(user_prefs)
+        
+        response_data = {
             "new_place": True,
-            "name_place": target_name,
-            "coordinates": target_coords,
-            "short_description": short_description,
-            "description": request.message,
-        })
+            "name_location": target_name,
+            "name_embedding": name_embedding,
+            "type_of_relax": relax_type.value,
+            "user_preferences": user_prefs,
+            "preferences_embedding": preferences_embedding,
+            "place_coordinates": target_coords,
+            "description": request.message
+        }
+        
+        # Добавляем специфичные поля для рыбалки
+        if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
+            response_data["caught_fishes"] = short_message.get("caught_fishes", [])
+            response_data["water_space"] = short_message.get("water_space", [])
+        
+        # Добавляем цену если есть
+        if short_message.get("wish_price"):
+            response_data["wish_price"] = short_message.get("wish_price")
+        
+        return JSONResponse(content=response_data)
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
+
     
 @app.post("/telegram/search", response_model=TelegramSearchResponse)
 async def search_fishing_spots_for_telegram(request: TelegramSearchRequest):
     """
-    Основной эндпоинт для поиска мест рыбалки из Telegram бота.
-    Теперь использует compare_fish_places для расчёта и сортировки по distance_km.
+    Основной эндпоинт для поиска мест из Telegram бота.
+    
+    Новая логика:
+    1. Анализирует запрос и извлекает важную информацию
+    2. Если указан wish_location - запрашивает места по локации
+    3. Если тип "рыбалка" и нет wish_location - запрашивает по рыбе и водоему
+    4. Сравнивает векторы user_preferences и формирует топ-10 по семантике
+    5. Для топ-10 вычисляет расстояние от пользователя
+    6. Формирует финальный рейтинг и возвращает топ-5
     """
     try:
-        short_info = analyzer.analyze_query_users(request.query)
-
-        fishing_places = await fetch_best_fishing_places(
-            short_info.get("caught_fishes", []),
-            short_info.get("water_space", [])
-        )
-
-        places_with_distance: list[dict] = await compare_fish_places(request.query, fishing_places)
-
-        spots: list[FishingSpot] = []
-        for place in places_with_distance:
-
-            raw_coords = place.get("coordinates", [])         # [lat, lon]
-            raw_user_loc = place.get("location_user", [])     # [lat, lon]
+        # Определяем тип отдыха из запроса
+        relax_type = RelaxType(request.relax_type) if hasattr(request, 'relax_type') else RelaxType.FISHING
+        
+        # Используем новую логику сравнения мест
+        places_ranked = await compare_places(request.query, relax_type)
+        
+        # Формируем список результатов
+        spots: list[Spot] = []
+        for place in places_ranked:
+            raw_coords = place.get("coordinates", [])
+            raw_user_loc = place.get("location_user", [])
             description_full = place.get("description", "")
             short_desc_obj = place.get("short_description", {})
             
-            spot = FishingSpot(
+            spot = Spot(
                 name=place.get("name_place", [None])[0] or "Неизвестно",
-                # Если в short_description лежит dict с ключом "short_description"
-                location_user = raw_user_loc,
+                location_user=raw_user_loc,
                 description=description_full,
-                short_description = short_desc_obj,
+                short_description=short_desc_obj,
                 coordinates=raw_coords,
-                distance_km= place.get("distance_km")  # уже рассчитано
+                distance_km=place.get("distance_km")
             )
             spots.append(spot)
-            
-        # 5. Дополнительно сортируем по релевантности
-        #    Сортировка по distance уже сделана, но мы здесь можем учитывать ещё текстовый запрос
-        #spots = sort_spots_by_relevance(spots, short_info, user_coords=None)
-        # 6. Оставляем только топ-5 результатов
+        
+        # Оставляем только топ-5 результатов
         spots = spots[:5]
-
+        
         return TelegramSearchResponse(
             success=True,
             spots=spots,
-            message=f"Найдено {len(spots)} подходящих мест для рыбалки",
+            message=f"Найдено {len(spots)} подходящих мест для отдыха",
         )
-
+        
     except Exception as e:
-        # В случае ошибки возвращаем пустой список с описанием
+        print(f"Ошибка при поиске: {e}")
         return TelegramSearchResponse(
             success=False,
             spots=[],
             message=f"Ошибка при поиске: {str(e)}"
         )
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app", 
