@@ -91,13 +91,10 @@ async def compare_location(request: CompareLocationRequest):
         name_embedding = get_one_name_embedding(target_name)
         target_coords = short_message.get("place_coordinates")
         if not target_coords:
-            try:
-                target_coords = await geocode_name_to_coords(target_name)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"Не удалось определить координаты для места: {target_name}")
+            target_coords = None
 
         # Получаем все места из базы
-        places_by_type = await get_all_places_by_type(relax_type)
+        places_by_type = await get_all_places_by_type(relax_type.value)
         
         # Проверяем каждое место
         for place in places_by_type:
@@ -141,7 +138,7 @@ async def compare_location(request: CompareLocationRequest):
                     }
                     
                     # Добавляем специфичные поля для рыбалки
-                    if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
+                    if relax_type in RelaxType.FISHING:
                         response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
                         response_data["water_space"] = updated_short.get("water_space", [])
                     
@@ -169,7 +166,7 @@ async def compare_location(request: CompareLocationRequest):
         }
         
         # Добавляем специфичные поля для рыбалки
-        if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
+        if relax_type in RelaxType.FISHING:
             response_data["caught_fishes"] = short_message.get("caught_fishes", [])
             response_data["water_space"] = short_message.get("water_space", [])
         
