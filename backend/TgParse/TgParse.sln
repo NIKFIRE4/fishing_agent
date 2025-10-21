@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TgParse", "TgParse.csproj", "{BD852AED-39E5-4010-815E-11D94DBF7648}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DBShared", "..\DBShared\DBShared.csproj", "{AB5E2D4A-7936-3522-22BB-30BFCB7B58E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,14 @@ Global
 		{BD852AED-39E5-4010-815E-11D94DBF7648}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD852AED-39E5-4010-815E-11D94DBF7648}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD852AED-39E5-4010-815E-11D94DBF7648}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB5E2D4A-7936-3522-22BB-30BFCB7B58E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB5E2D4A-7936-3522-22BB-30BFCB7B58E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB5E2D4A-7936-3522-22BB-30BFCB7B58E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB5E2D4A-7936-3522-22BB-30BFCB7B58E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C703AF7D-9E9C-5F0D-7E3D-B33D7C454CAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C703AF7D-9E9C-5F0D-7E3D-B33D7C454CAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C703AF7D-9E9C-5F0D-7E3D-B33D7C454CAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C703AF7D-9E9C-5F0D-7E3D-B33D7C454CAF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

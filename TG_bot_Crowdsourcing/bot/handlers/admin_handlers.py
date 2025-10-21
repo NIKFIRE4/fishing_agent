@@ -3,7 +3,7 @@
 """
 import logging
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 import os
@@ -18,28 +18,12 @@ from bot.states.states import EditPostStates
 from bot.utils.helpers import validate_date
 from config import MIN_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH
 from config import ADMIN_ID
-
+from bot.utils import admin
 logger = logging.getLogger(__name__)
 router = Router()
 
-def parse_admin_ids(env_value: str) -> set[int]:
-    ids = set()
-    if not env_value:
-        return ids
-    for part in env_value.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            ids.add(int(part))
-        except ValueError:
-            logger.warning("Invalid ADMIN_ID value ignored: %r", part)
-    return ids
-
-ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID", ""))
-
 def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+    return user_id in admin.ADMIN_IDS
 
 @router.message(Command("admin"))
 async def admin_command(message: Message):
@@ -65,6 +49,9 @@ async def back_to_admin_menu(callback: CallbackQuery):
         return
     
     await callback.answer()
+    
+    # Очищаем сообщения модерации при возврате в админ меню
+    await clear_old_moderation_messages(callback.from_user.id, callback.message.bot)
     
     username = callback.from_user.username or callback.from_user.first_name
     
@@ -158,11 +145,21 @@ async def show_moderation_queue(callback: CallbackQuery):
     stats = PostService.get_statistics()
     
     if stats['total_posts'] == 0:
-        await callback.message.edit_text(
-            "ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
-            "Нет постов, ожидающих модерации.",
-            reply_markup=get_back_to_admin_keyboard()
-        )
+        # Попытаемся отредактировать, если не получится - отправим новое
+        try:
+            await callback.message.edit_text(
+                "ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
+                "Нет постов, ожидающих модерации.",
+                reply_markup=get_back_to_admin_keyboard()
+            )
+        except:
+            # Если редактирование не удалось, отправляем новое сообщение
+            await callback.message.bot.send_message(
+                chat_id=callback.from_user.id,
+                text="ОЧЕРЕДЬ МОДЕРАЦИИ ПУСТА\n\n"
+                     "Нет постов, ожидающих модерации.",
+                reply_markup=get_back_to_admin_keyboard()
+            )
         return
     
     # Показываем первый пост в очереди
@@ -170,8 +167,21 @@ async def show_moderation_queue(callback: CallbackQuery):
     first_post_id = post_ids[0]
     await show_post_details(callback, first_post_id, 0)
 
+# Глобальная переменная для отслеживания последних сообщений модерации
+moderation_messages = {}
+
+async def clear_old_moderation_messages(user_id: int, bot: Bot):
+    """Удаляет старые сообщения модерации для пользователя"""
+    if user_id in moderation_messages:
+        for message_id in moderation_messages[user_id]:
+            try:
+                await bot.delete_message(chat_id=user_id, message_id=message_id)
+            except:
+                pass  # Сообщение уже удалено или недоступно
+        moderation_messages[user_id] = []
+
 async def show_post_details(callback_or_message, post_id: str, index: int):
-    """Показывает детали поста для модерации"""
+    """Показывает детали поста для модерации с фотографиями и видео"""
     post_data = PostService.get_post(post_id)
     if not post_data:
         if hasattr(callback_or_message, 'message'):
@@ -188,48 +198,156 @@ async def show_post_details(callback_or_message, post_id: str, index: int):
     
     stats = PostService.get_statistics()
     
+    # Обновляем информацию о медиафайлах
+    photos_count = len(post_data.photos or [])
+    videos_count = len(post_data.videos or [])
+    
+    media_info = []
+    if photos_count > 0:
+        media_info.append(f"{photos_count} фото")
+    if videos_count > 0:
+        media_info.append(f"{videos_count} видео")
+    
+    media_text = ", ".join(media_info) if media_info else "нет медиафайлов"
+    
     post_text = (
         f"ПОСТ НА МОДЕРАЦИИ ({index + 1}/{stats['total_posts']})\n\n"
         f"Автор: @{post_data.username}\n"
         f"Дата похода: {post_data.date}\n"
         f"Место: {post_data.location_name}\n"
-        f"Описание: {post_data.location_description[:200]}{'...' if len(post_data.location_description) > 200 else ''}\n"
+        f"Описание: {post_data.location_description[:200]}{'...' if len(post_data.location_description or '') > 200 else ''}\n"
         f"Координаты: {post_data.coordinates}\n"
-        f"Фото: {len(post_data.photos)} шт.\n"
+        f"Медиафайлы: {media_text}\n"
         f"Создан: {post_data.timestamp.strftime('%d.%m.%Y %H:%M')}"
     )
     
-    # Отправляем/редактируем текст с клавиатурой
-    if hasattr(callback_or_message, 'message'):
-        await callback_or_message.message.edit_text(
-            post_text,
-            reply_markup=get_queue_navigation_keyboard(stats['all_posts'], index)
-        )
-    else:
-        await callback_or_message.edit_text(
-            post_text,
-            reply_markup=get_queue_navigation_keyboard(stats['all_posts'], index)
-        )
+    keyboard = get_queue_navigation_keyboard(stats['all_posts'], index)
     
-    # Отправляем фото отдельно
-    if post_data.photos:
-        bot = callback_or_message.bot if hasattr(callback_or_message, 'bot') else callback_or_message.message.bot
-        chat_id = callback_or_message.from_user.id if hasattr(callback_or_message, 'from_user') else callback_or_message.message.chat.id
+    # Получаем bot и chat_id
+    if hasattr(callback_or_message, 'message'):
+        bot = callback_or_message.message.bot
+        chat_id = callback_or_message.from_user.id
+        user_id = callback_or_message.from_user.id
         
+        # Удаляем все старые сообщения модерации
+        await clear_old_moderation_messages(user_id, bot)
+        
+    else:
+        bot = callback_or_message.bot
+        chat_id = callback_or_message.chat.id
+        user_id = callback_or_message.from_user.id if callback_or_message.from_user else chat_id
+        
+        # Инициализируем список для нового пользователя
+        if user_id not in moderation_messages:
+            moderation_messages[user_id] = []
+    
+    # Собираем все медиафайлы
+    photos = post_data.photos or []
+    videos = post_data.videos or []
+    total_media = len(photos) + len(videos)
+    
+    # Если есть медиафайлы - отправляем их
+    if total_media > 0:
         try:
-            if len(post_data.photos) == 1:
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=post_data.photos[0]
-                )
+            if total_media == 1:
+                # Один медиафайл - отправляем с подписью и клавиатурой
+                if photos:
+                    message = await bot.send_photo(
+                        chat_id=chat_id,
+                        photo=photos[0],
+                        caption=post_text,
+                        reply_markup=keyboard
+                    )
+                else:
+                    message = await bot.send_video(
+                        chat_id=chat_id,
+                        video=videos[0],
+                        caption=post_text,
+                        reply_markup=keyboard
+                    )
+                
+                # Сохраняем ID сообщения
+                if user_id not in moderation_messages:
+                    moderation_messages[user_id] = []
+                moderation_messages[user_id].append(message.message_id)
+                
             else:
-                media = [InputMediaPhoto(media=photo_id) for photo_id in post_data.photos]
-                await bot.send_media_group(
+                # Несколько медиафайлов - делаем медиа группу
+                media = []
+                caption_added = False
+                
+                # Добавляем фото
+                for photo_id in photos:
+                    if not caption_added:
+                        media.append(InputMediaPhoto(media=photo_id, caption=post_text))
+                        caption_added = True
+                    else:
+                        media.append(InputMediaPhoto(media=photo_id))
+                
+                # Добавляем видео
+                for video_id in videos:
+                    if not caption_added:
+                        media.append(InputMediaVideo(media=video_id, caption=post_text))
+                        caption_added = True
+                    else:
+                        media.append(InputMediaVideo(media=video_id))
+                
+                # Отправляем медиа группу
+                messages = await bot.send_media_group(
                     chat_id=chat_id,
                     media=media
                 )
+                
+                # Отправляем клавиатуру отдельным сообщением после медиа группы
+                keyboard_message = await bot.send_message(
+                    chat_id=chat_id,
+                    text="👆 Управление постом:",
+                    reply_markup=keyboard
+                )
+                
+                # Сохраняем ID всех сообщений
+                if user_id not in moderation_messages:
+                    moderation_messages[user_id] = []
+                
+                for msg in messages:
+                    moderation_messages[user_id].append(msg.message_id)
+                moderation_messages[user_id].append(keyboard_message.message_id)
+                
         except Exception as e:
-            logger.error(f"Ошибка отправки фото: {e}")
+            logger.error(f"Ошибка отправки медиафайлов: {e}")
+            # В случае ошибки отправляем только текст
+            if hasattr(callback_or_message, 'message'):
+                await callback_or_message.message.edit_text(
+                    post_text + "\n\n❌ Ошибка загрузки медиафайлов",
+                    reply_markup=keyboard
+                )
+            else:
+                message = await bot.send_message(
+                    chat_id=chat_id,
+                    text=post_text + "\n\n❌ Ошибка загрузки медиафайлов",
+                    reply_markup=keyboard
+                )
+                
+                if user_id not in moderation_messages:
+                    moderation_messages[user_id] = []
+                moderation_messages[user_id].append(message.message_id)
+    else:
+        # Нет медиафайлов - обычное текстовое сообщение
+        if hasattr(callback_or_message, 'message'):
+            await callback_or_message.message.edit_text(
+                post_text,
+                reply_markup=keyboard
+            )
+        else:
+            message = await bot.send_message(
+                chat_id=chat_id,
+                text=post_text,
+                reply_markup=keyboard
+            )
+            
+            if user_id not in moderation_messages:
+                moderation_messages[user_id] = []
+            moderation_messages[user_id].append(message.message_id)
 
 @router.callback_query(F.data.startswith("view_post_"))
 async def view_specific_post(callback: CallbackQuery):
@@ -278,14 +396,26 @@ async def start_edit_post(callback: CallbackQuery, state: FSMContext):
     # Сохраняем ID редактируемого поста
     await state.update_data(editing_post_id=post_id)
     
+    # Обновляем информацию о медиафайлах
+    photos_count = len(post_data.photos or [])
+    videos_count = len(post_data.videos or [])
+    
+    media_info = []
+    if photos_count > 0:
+        media_info.append(f"{photos_count} фото")
+    if videos_count > 0:
+        media_info.append(f"{videos_count} видео")
+    
+    media_text = ", ".join(media_info) if media_info else "нет медиафайлов"
+    
     edit_menu = (
         f"РЕДАКТИРОВАНИЕ ПОСТА\n\n"
         f"Автор: @{post_data.username}\n"
         f"Текущая дата: {post_data.date}\n"
         f"Текущее место: {post_data.location_name}\n"
-        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description) > 100 else ''}\n"
+        f"Текущее описание: {post_data.location_description[:100]}{'...' if len(post_data.location_description or '') > 100 else ''}\n"
         f"Текущие координаты: {post_data.coordinates}\n"
-        f"Фотографий: {len(post_data.photos)}\n\n"
+        f"Медиафайлы: {media_text}\n\n"
         f"Что хотите изменить?"
     )
     
@@ -304,7 +434,20 @@ async def start_edit_post(callback: CallbackQuery, state: FSMContext):
         ]
     ])
     
-    await callback.message.edit_text(edit_menu, reply_markup=keyboard)
+    # Очищаем старые сообщения модерации
+    await clear_old_moderation_messages(callback.from_user.id, callback.message.bot)
+    
+    # Отправляем новое сообщение с меню редактирования
+    message = await callback.message.bot.send_message(
+        chat_id=callback.from_user.id,
+        text=edit_menu,
+        reply_markup=keyboard
+    )
+    
+    # Сохраняем ID нового сообщения
+    if callback.from_user.id not in moderation_messages:
+        moderation_messages[callback.from_user.id] = []
+    moderation_messages[callback.from_user.id].append(message.message_id)
 
 @router.callback_query(F.data.startswith("edit_date_"))
 async def edit_post_date(callback: CallbackQuery, state: FSMContext):
@@ -319,12 +462,19 @@ async def edit_post_date(callback: CallbackQuery, state: FSMContext):
     await state.update_data(editing_post_id=post_id)
     await state.set_state(EditPostStates.edit_date)
     
-    await callback.message.edit_text(
-        "Введите новую дату в формате ДД.ММ.ГГГГ:",
+    # Отправляем новое сообщение вместо редактирования
+    message = await callback.message.bot.send_message(
+        chat_id=callback.from_user.id,
+        text="Введите новую дату в формате ДД.ММ.ГГГГ:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отменить", callback_data=f"edit_post_{post_id}")]
         ])
     )
+    
+    # Добавляем в отслеживание
+    if callback.from_user.id not in moderation_messages:
+        moderation_messages[callback.from_user.id] = []
+    moderation_messages[callback.from_user.id].append(message.message_id)
 
 @router.callback_query(F.data.startswith("edit_name_"))
 async def edit_post_name(callback: CallbackQuery, state: FSMContext):
@@ -339,12 +489,19 @@ async def edit_post_name(callback: CallbackQuery, state: FSMContext):
     await state.update_data(editing_post_id=post_id)
     await state.set_state(EditPostStates.edit_location_name)
     
-    await callback.message.edit_text(
-        "Введите новое название места:",
+    # Отправляем новое сообщение вместо редактирования
+    message = await callback.message.bot.send_message(
+        chat_id=callback.from_user.id,
+        text="Введите новое название места:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отменить", callback_data=f"edit_post_{post_id}")]
         ])
     )
+    
+    # Добавляем в отслеживание
+    if callback.from_user.id not in moderation_messages:
+        moderation_messages[callback.from_user.id] = []
+    moderation_messages[callback.from_user.id].append(message.message_id)
 
 @router.callback_query(F.data.startswith("edit_location_"))
 async def edit_post_location(callback: CallbackQuery, state: FSMContext):
@@ -359,12 +516,19 @@ async def edit_post_location(callback: CallbackQuery, state: FSMContext):
     await state.update_data(editing_post_id=post_id)
     await state.set_state(EditPostStates.edit_location_description)
     
-    await callback.message.edit_text(
-        "Введите новое описание локации:",
+    # Отправляем новое сообщение вместо редактирования
+    message = await callback.message.bot.send_message(
+        chat_id=callback.from_user.id,
+        text="Введите новое описание локации:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отменить", callback_data=f"edit_post_{post_id}")]
         ])
     )
+    
+    # Добавляем в отслеживание
+    if callback.from_user.id not in moderation_messages:
+        moderation_messages[callback.from_user.id] = []
+    moderation_messages[callback.from_user.id].append(message.message_id)
 
 @router.callback_query(F.data.startswith("edit_coords_"))
 async def edit_post_coordinates(callback: CallbackQuery, state: FSMContext):
@@ -379,12 +543,19 @@ async def edit_post_coordinates(callback: CallbackQuery, state: FSMContext):
     await state.update_data(editing_post_id=post_id)
     await state.set_state(EditPostStates.edit_coordinates)
     
-    await callback.message.edit_text(
-        "Введите новые координаты:",
+    # Отправляем новое сообщение вместо редактирования
+    message = await callback.message.bot.send_message(
+        chat_id=callback.from_user.id,
+        text="Введите новые координаты:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отменить", callback_data=f"edit_post_{post_id}")]
         ])
     )
+    
+    # Добавляем в отслеживание
+    if callback.from_user.id not in moderation_messages:
+        moderation_messages[callback.from_user.id] = []
+    moderation_messages[callback.from_user.id].append(message.message_id)
 
 # Обработчики для состояний редактирования
 @router.message(EditPostStates.edit_date)
@@ -593,7 +764,14 @@ async def return_to_edit_menu(message: Message, post_id: str, bot: Bot):
         ]
     ])
     
-    await message.answer(edit_menu, reply_markup=keyboard)
+    # Отправляем новое сообщение
+    new_message = await message.answer(edit_menu, reply_markup=keyboard)
+    
+    # Добавляем в отслеживание
+    user_id = message.from_user.id
+    if user_id not in moderation_messages:
+        moderation_messages[user_id] = []
+    moderation_messages[user_id].append(new_message.message_id)
 
 @router.callback_query(F.data.startswith("request_edit_"))
 async def request_edit(callback: CallbackQuery, bot: Bot):
@@ -628,6 +806,8 @@ async def approve_post(callback: CallbackQuery, bot: Bot):
     
     if success:
         await callback.answer("Пост опубликован!")
+        # Очищаем сообщения перед возвратом к очереди
+        await clear_old_moderation_messages(callback.from_user.id, bot)
         # Возвращаемся к очереди модерации
         await show_moderation_queue(callback)
     else:
@@ -647,18 +827,12 @@ async def reject_post(callback: CallbackQuery, bot: Bot):
     
     if success:
         await callback.answer("Пост отклонен")
+        # Очищаем сообщения перед возвратом к очереди
+        await clear_old_moderation_messages(callback.from_user.id, bot)
         # Возвращаемся к очереди модерации
         await show_moderation_queue(callback)
     else:
         await callback.answer("Ошибка при отклонении", show_alert=True)
-
-# УДАЛЯЕМ СТАРЫЙ ОБРАБОТЧИК - он больше не нужен
-# Все кнопки уже используют правильный формат edit_post_, request_edit_ и т.д.
-# 
-# @router.callback_query(F.data.startswith("edit_") & ~F.data.startswith("edit_post_") & ~F.data.startswith("edit_date_") & ~F.data.startswith("edit_name_") & ~F.data.startswith("edit_location_") & ~F.data.startswith("edit_coords_"))
-# async def old_edit_handler(callback: CallbackQuery, bot: Bot):
-#     """УДАЛЕН - больше не нужен"""
-#     pass
 
 # Дополнительные команды (скрытые для быстрого доступа)
 @router.message(Command("stats"))
