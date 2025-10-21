@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from endpoints.classes_for_endpoint import ImageRequest, MessageRequest, TelegramSearchRequest, TelegramSearchResponse, BestPlacesRequest, Spot, CompareLocationRequest
-from endpoints.endpoints_with_backend import get_all_places_by_type, fetch_best_fishing_places, fetch_places_by_location
+from endpoints.endpoints_with_backend import get_all_places_by_type, fetch_best_fishing_places
 from model_provider import Model
 from relax_analyzer import RelaxAnalyzer, RelaxType
 from calculate_distance.encoder import get_similarity, create_semantic_embedding, get_one_name_embedding
@@ -97,7 +97,7 @@ async def compare_location(request: CompareLocationRequest):
                 raise HTTPException(status_code=400, detail=f"Не удалось определить координаты для места: {target_name}")
 
         # Получаем все места из базы
-        places_by_type = await get_all_places_by_type()
+        places_by_type = await get_all_places_by_type(relax_type)
         
         # Проверяем каждое место
         for place in places_by_type:

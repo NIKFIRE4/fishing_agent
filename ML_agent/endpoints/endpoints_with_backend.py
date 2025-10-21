@@ -1,7 +1,7 @@
 import httpx
 
-# BACKEND_URL = "http://parsing_service:8002/api/Places"
-BACKEND_URL = "http://localhost:8002"
+BACKEND_URL = "http://parsing_service:8002/api/Places"
+#BACKEND_URL = "http://localhost:8002"
 
 
 # async def fetch_all_places_by_type() -> list[dict]:
