@@ -53,9 +53,6 @@ namespace TgParse.Controllers
                 Console.WriteLine($"Начало обработки сообщений");
                 await _processorService.ProcessUnprocessedMessagesAsync();
                 return Ok("Сообщения обработаны.");
-                
-
-                // Возвращаем JSON-документ как строку для удобства
 
             }
             catch (Exception ex)
