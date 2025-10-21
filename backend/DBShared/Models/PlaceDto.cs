@@ -10,11 +10,11 @@ namespace DBShared.Models
 {
     public class PlaceDto
     {
-        [JsonPropertyName("name_location")]
-        public string? NameLocation { get; set; }
+        [JsonPropertyName("name_place")]
+        public string? NamePlace { get; set; }
 
         [JsonPropertyName("type_of_relax")]
-        public string? TypeOfRelax { get; set; }
+        public string? RelaxType { get; set; }
 
         [JsonPropertyName("user_preferences")]
         public List<string>? UserPreferences { get; set; }

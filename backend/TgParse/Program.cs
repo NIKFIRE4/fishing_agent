@@ -23,6 +23,7 @@ namespace TgParse
                 ConnectionMultiplexer.Connect(
                     $"{Environment.GetEnvironmentVariable("REDIS_HOST")}:{Environment.GetEnvironmentVariable("REDIS_PORT")}," +
                     $"password={Environment.GetEnvironmentVariable("REDIS_PASSWORD")}"));
+            services.AddSingleton<CacheService>();
         }
 
         private static void ApplyMigrations(ApplicationContext context)
@@ -53,7 +54,7 @@ namespace TgParse
                 ApplyMigrations(context);
             }
             using ApplicationContext db = new();
-
+            
 
 
             GlobalFFOptions.Configure(options =>
@@ -68,8 +69,8 @@ namespace TgParse
 
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-            //builder.Services.AddSingleton<CacheService>();
+            builder.Services.AddSwaggerGen();       
+        
             builder.Services.AddDbContext<ApplicationContext>();
             builder.Services.AddScoped<MessageComparor>();
 

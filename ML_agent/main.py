@@ -97,7 +97,7 @@ async def compare_location(request: CompareLocationRequest):
                 raise HTTPException(status_code=400, detail=f"Не удалось определить координаты для места: {target_name}")
 
         # Получаем все места из базы
-        places_by_type = await get_all_places_by_type(relax_type)
+        places_by_type = await get_all_places_by_type(relax_type.value)
         
         # Проверяем каждое место
         for place in places_by_type:

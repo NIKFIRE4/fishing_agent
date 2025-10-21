@@ -8,7 +8,12 @@ namespace TgParse.Services
     {
         public static async Task<JsonDocument?> DataConverter(string tgMessage, string sourseUrl)
         {
-            var jsonObject = new { message = tgMessage,  };
+            string? relaxType;
+            if (sourseUrl == "rybalka_spb_lenoblasti") relaxType = "рыбалка";
+            else relaxType = "кемпинг";
+
+
+                var jsonObject = new { message = tgMessage, relax_type = relaxType };
             string json = JsonSerializer.Serialize(jsonObject);
 
             using HttpClient client = new HttpClient();
@@ -16,7 +21,7 @@ namespace TgParse.Services
             HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
             Console.WriteLine($"Отправка запроса: {jsonObject}");
-            HttpResponseMessage response = await client.PostAsync("compare_fishing_places", content);
+            HttpResponseMessage response = await client.PostAsync("compare_location", content);
 
             if (response.IsSuccessStatusCode)
             {

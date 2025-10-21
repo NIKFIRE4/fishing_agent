@@ -43,8 +43,8 @@ namespace TgParse.Controllers
             // Преобразуем в DTO для ответа
             var placeDtos = places.Select(p => new PlaceDto
             {
-                NameLocation = p.PlaceName,
-                TypeOfRelax = p.PlaceType,
+                NamePlace = p.PlaceName,
+                RelaxType = p.PlaceType,
                 UserPreferences = p.UserPreferences ?? new List<string>(),
                 PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
                     ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
