@@ -2,12 +2,13 @@ from typing import *
 import httpx
 from calculate_distance.map import get_route, geocode_name_to_coords
 from calculate_distance.encoder import create_semantic_embedding, calculate_semantic_similarity
-from endpoints.endpoints_with_backend import get_all_places_by_id, fetch_best_fishing_places, fetch_places_by_location, fetch_all_places_by_type
+from endpoints.endpoints_with_backend import get_all_places_by_id, fetch_best_fishing_places, fetch_places_by_location, get_all_places_by_type
 from model_provider import Model
 from calculate_distance.encoder import get_similarity, create_semantic_embedding
 from relax_analyzer import RelaxAnalyzer, RelaxType
 import random
-
+from dotenv import load_dotenv
+load_dotenv()
 model = Model()
 analyzer = RelaxAnalyzer(model)
 
