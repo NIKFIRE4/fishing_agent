@@ -21,6 +21,7 @@ namespace TgParse
                 Console.WriteLine("Applying database migrations...");
                 context.Database.Migrate();
                 Console.WriteLine("Migrations applied successfully!");
+                
             }
             catch (Exception ex)
             {
