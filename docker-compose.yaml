@@ -31,6 +31,18 @@ services:
     container_name: tg_bot_crowdsourcing
     restart: unless-stopped   
 
+
+  tg_bot_fishagent:
+    env_file:
+      - ./TG_bot_FishAgent/.env
+    build:
+      context: ./TG_bot_FishAgent
+      dockerfile: Dockerfile
+    image: tg-bot-travelai:latest
+    container_name: tg_bot_travelai
+    restart: unless-stopped
+    
+
   redis:
       image: redis:latest
       env_file:
