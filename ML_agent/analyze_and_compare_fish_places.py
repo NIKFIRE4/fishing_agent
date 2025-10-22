@@ -1,3 +1,4 @@
+
 from typing import *
 import httpx
 from calculate_distance.map import get_route, geocode_name_to_coords
@@ -6,12 +7,14 @@ from endpoints.endpoints_with_backend import get_all_places_by_id, fetch_best_fi
 from model_provider import Model
 from calculate_distance.encoder import get_similarity, create_semantic_embedding
 from relax_analyzer import RelaxAnalyzer, RelaxType
+from redis import RedisManager  # Импортируем Redis менеджер
 import random
 from dotenv import load_dotenv
+
 load_dotenv()
 model = Model()
 analyzer = RelaxAnalyzer(model)
-
+redis_manager = RedisManager()
 
 async def get_redis_places_embeddings() -> List[Dict]:
     """
@@ -19,7 +22,7 @@ async def get_redis_places_embeddings() -> List[Dict]:
     Возвращает список вида:
     [
         {
-            "id": 1,
+            "location_id": 1,
             "name_embedding": [...],
             "preferences_embedding": [...],
             "coord_location": [lat, lon]
@@ -27,34 +30,12 @@ async def get_redis_places_embeddings() -> List[Dict]:
         ...
     ]
     """
-    # TODO: Реализовать получение из Redis
-    # Здесь заглушка
-    return [
-        {
-            "id": 1,
-            "name_embedding": [0.85, -0.12, 0.44, 0.67],
-            "preferences_embedding": [0.82, -0.10, 0.46, 0.65],
-            "coord_location": [55.751244, 37.618423]
-        },
-        {
-            "id": 2,
-            "name_embedding": [0.33, 0.91, -0.25, 0.18],
-            "preferences_embedding": [0.35, 0.89, -0.22, 0.20],
-            "coord_location": [59.9311, 30.3609]
-        },
-        {
-            "id": 3,
-            "name_embedding": [-0.41, 0.77, 0.59, -0.05],
-            "preferences_embedding": [-0.39, 0.75, 0.61, -0.03],
-            "coord_location": [60.1699, 24.9384]
-        },
-        {
-            "id": 4,
-            "name_embedding": [0.12, -0.66, 0.88, 0.31],
-            "preferences_embedding": [0.14, -0.64, 0.90, 0.29],
-            "coord_location": [61.5240, 105.3188]
-        }
-    ]
+    try:
+        places = redis_manager.get_all_places()
+        return places if places else []
+    except Exception as e:
+        print(f"Ошибка при получении данных из Redis: {e}")
+        return []
 
 
 async def calculate_combined_metric(
