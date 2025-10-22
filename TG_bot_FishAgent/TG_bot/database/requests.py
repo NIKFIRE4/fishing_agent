@@ -4,6 +4,8 @@ from sqlalchemy import select, func
 from sqlalchemy import Date
 from typing import Union, List
 from datetime import date
+from dotenv import load_dotenv
+load_dotenv()
 async def get_or_create_user(tg_id: int, username: str = None, first_name: str = None, last_name: str = None):
     """Получить или создать пользователя"""
     async with async_session() as session:

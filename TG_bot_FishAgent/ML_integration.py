@@ -29,7 +29,7 @@ class MLServiceClient:
         
         payload = {
             "user_id": user_id,
-            "query": query,
+            "query": query
         }
         
         try:
