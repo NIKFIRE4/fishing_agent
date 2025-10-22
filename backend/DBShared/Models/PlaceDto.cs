@@ -10,6 +10,9 @@ namespace DBShared.Models
 {
     public class PlaceDto
     {
+        [JsonPropertyName("place_id")]
+        public int? PlaceId { get; set; }
+
         [JsonPropertyName("name_place")]
         public string? NamePlace { get; set; }
 

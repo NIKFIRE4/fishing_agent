@@ -72,6 +72,30 @@ services:
   #         dotnet tool install --global dotnet-ef &&
   #         /root/.dotnet/tools/dotnet-ef database update --verbose"
   
+  agent_backend:
+    env_file:
+    - ./backend/.env
+    build:
+        context: ./backend
+        dockerfile: AgentBackend/Dockerfile
+    image: agent-backend:lattest
+    container_name: agent_backend
+    environment:
+        - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ASPNETCORE_URLS=http://+:8003
+
+    ports: 
+        - "8003:8003"
+    depends_on:
+      ml_service:
+        condition: service_started
+      minio:
+        condition: service_started
+      mc:
+        condition: service_started    
+      db:
+        condition: service_healthy       
 
   parsing_service:
     env_file:
@@ -80,7 +104,7 @@ services:
       context: ./backend
       dockerfile: TgParse/Dockerfile
     image: fishing-parsing:latest
-    container_name: fishing_parsing
+    container_name: parsing_service
     tty: true
 
     stdin_open: true

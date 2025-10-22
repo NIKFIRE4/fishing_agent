@@ -33,7 +33,8 @@ namespace TgParse.Data
                     location_id = p.IdPlace,
                     coord_location = new List<decimal> { p.Latitude!.Value, p.Longitude!.Value },
                     name_embedding = p.PlaceVectors != null ? p.PlaceVectors.NameEmbedding : null,
-                    preferences_ebbedding = p.PlaceVectors != null ? p.PlaceVectors.PreferencesEmbedding : null
+                    preferences_ebbedding = p.PlaceVectors != null ? p.PlaceVectors.PreferencesEmbedding : null,
+                    type_of_relax = p.PlaceType ?? null
                 })
                 .ToListAsync(); ; 
             string json = JsonSerializer.Serialize(places);
@@ -50,6 +51,7 @@ namespace TgParse.Data
             public List<decimal>? coord_location { get; set; }
             public List<float>? name_embedding { get; set; }
             public List<float>? preferences_ebbedding { get; set; }
+            public string? type_of_relax { get; set; }
         }
     }
 }
