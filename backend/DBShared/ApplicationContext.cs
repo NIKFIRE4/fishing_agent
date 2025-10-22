@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using DBShared.Models;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json;
 
 namespace DBShared
 {
@@ -29,6 +31,11 @@ namespace DBShared
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            var jsonSerializerOptions = new JsonSerializerOptions();
+            var listFloatConverter = new ValueConverter<List<float>?, string>(
+                v => JsonSerializer.Serialize(v, jsonSerializerOptions),
+                v => JsonSerializer.Deserialize<List<float>>(v, jsonSerializerOptions) ?? new List<float>());
+
             modelBuilder.Entity<TgMessages>()
                 .HasMany(m => m.Photos)
                 .WithOne(p => p.Messages)
@@ -104,10 +111,12 @@ namespace DBShared
 
             modelBuilder.Entity<PlaceVectors>()
                 .Property(pv => pv.NameEmbedding)
+                .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
             modelBuilder.Entity<PlaceVectors>()
                 .Property(pv => pv.PreferencesEmbedding)
+                .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
             

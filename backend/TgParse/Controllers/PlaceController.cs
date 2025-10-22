@@ -5,6 +5,8 @@ using DBShared;
 using DBShared.Models;
 using TgParse.Services;
 using TL.Methods;
+using Minio.DataModel;
+using TgParse.Data;
 
 
 namespace TgParse.Controllers
@@ -14,50 +16,58 @@ namespace TgParse.Controllers
     public class PlacesController : ControllerBase
     {
         private readonly ApplicationContext _context;
+        private readonly CacheService _cacheService;
 
-        public PlacesController(ApplicationContext context)
+        public PlacesController(ApplicationContext context, CacheService cacheService)
         {
             _context = context;
+            _cacheService = cacheService;
         }
 
+        [HttpPost("refresh-cache")]
+        public async Task<IActionResult> RefreshCache([FromServices] CacheService cacheService)
+        {
+            //await cacheService.CacheAllPlacesAsync();
+            return Ok("Кэш обновлён");
+        }
 
         [HttpPost]
         public async Task<ActionResult<List<PlaceDto>>> Parse([FromBody] TourismType request)
         {
-
             // Загружаем все места с связанными данными (рыбы и водоёмы)
-            var places = await _context.Places
+            var query = _context.Places
                 .Include(p => p.FishingPlaceFishes)
                     .ThenInclude(fpf => fpf.FishType)
                 .Include(p => p.FishingPlaceWaters)
                     .ThenInclude(fpw => fpw.WaterType)
-                .ToListAsync();
+                .AsQueryable();
+
+            // Фильтруем по типу туризма, если указано
+            if (!string.IsNullOrEmpty(request.Type))
+            {
+                query = query.Where(p => p.PlaceType == request.Type);
+            }
+
+            var places = await query.ToListAsync();
 
             // Преобразуем в DTO для ответа
             var placeDtos = places.Select(p => new PlaceDto
             {
-                id = p.IdPlace,
-                name_place = new List<string> { p.PlaceName ?? "Неизвестно" },
-                coordinates = p.Latitude.HasValue && p.Longitude.HasValue
-                    ? new List<double> { (double)p.Latitude.Value, (double)p.Longitude.Value }
-                    : new List<double>(),
-                short_description = new ShortDescriptionDto
-                {
-                    name_place = new List<string> { p.PlaceName ?? "Неизвестно" },
-                    coordinates = p.Latitude.HasValue && p.Longitude.HasValue
-                        ? new List<double> { (double)p.Latitude.Value, (double)p.Longitude.Value }
-                        : new List<double>(),
-                    caught_fishes = p.FishingPlaceFishes
-                        .Select(fpf => fpf.FishType?.FishName ?? "Неизвестно")
-                        .Where(name => name != null)
-                        .ToList() ?? new List<string>(),
-                    water_space = p.FishingPlaceWaters
-                        .Select(fpf => fpf.WaterType?.WaterName ?? "Неизвестно")
-                        .Where(name => name != null)
-                        .ToList() ?? new List<string>(),
-
-                },
-                description = p.PlaceDescription
+                NamePlace = p.PlaceName,
+                RelaxType = p.PlaceType,
+                UserPreferences = p.UserPreferences ?? new List<string>(),
+                PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
+                    ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                    : new List<decimal>(),
+                Description = p.PlaceDescription,
+                CaughtFishes = p.FishingPlaceFishes
+                    .Select(fpf => fpf.FishType?.FishName ?? "Неизвестно")
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList() ?? new List<string>(),
+                WaterSpace = p.FishingPlaceWaters
+                    .Select(fpw => fpw.WaterType?.WaterName ?? "Неизвестно")
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList() ?? new List<string>()
             }).ToList();
 
             return Ok(placeDtos);
@@ -100,7 +110,7 @@ namespace TgParse.Controllers
 
         public class TourismType
         {
-            public string? Message { get; set; }
+            public string? Type { get; set; }
         }
 
     }
