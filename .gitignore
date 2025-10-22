@@ -88,3 +88,4 @@
 /backend/DBShared/obj/Debug/net9.0/DBShared.genruntimeconfig.cache
 /backend/AgentBackend/obj/Release/net9.0/AgentBackend.GeneratedMSBuildEditorConfig.editorconfig
 /backend/AgentBackend/obj/Debug/net9.0/AgentBackend.GeneratedMSBuildEditorConfig.editorconfig
+/TG_bot_FishAgent/.env

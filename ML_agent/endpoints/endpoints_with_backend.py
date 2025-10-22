@@ -1,6 +1,7 @@
 import httpx
 
 BACKEND_URL = "http://parsing_service:8002/api/Places"
+BOT_BACKEND_URL = "http://parsing_service:8003/api/"
 #BACKEND_URL = "http://localhost:8002"
 
 
@@ -35,7 +36,7 @@ async def get_all_places_by_id(
         "place_ids": places_ids
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(f"{BACKEND_URL}/places_by_ids", json=payload)
+        resp = await client.post(f"{BOT_BACKEND_URL}/BotApi/by-id", json=payload)
         resp.raise_for_status()
         return resp.json()
 
@@ -58,7 +59,7 @@ async def fetch_best_fishing_places(
         "water_space": water_space,
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(BACKEND_URL, json=payload)
+        resp = await client.post(f"{BOT_BACKEND_URL}/BotApi/by-type", json=payload)
         resp.raise_for_status()
         return resp.json()
 

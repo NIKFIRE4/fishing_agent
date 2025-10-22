@@ -17,6 +17,8 @@ namespace DBShared
         public DbSet<PlaceVectors> PlaceVectors { get; set; }
         public DbSet<FishingPlaceFish> FishingPlaceFish { get; set; }
         public DbSet<FishingPlaceWater> FishingPlaceWater { get; set; }
+        public DbSet<User> users { get; set; }
+        public DbSet<SelectedSpot> selected_fishing_spots { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -119,7 +121,28 @@ namespace DBShared
                 .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
-            
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.selected_spots)
+                .WithOne(s => s.user)
+                .HasForeignKey(s => s.user_id)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.tg_id)
+                .IsUnique();
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.spot_name)
+                .HasMaxLength(255);
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.spot_coordinates)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.user_coordinates)
+                .HasMaxLength(100);
         }
     }
 }

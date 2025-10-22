@@ -1,4 +1,5 @@
 ﻿using DBShared;
+using DBShared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
@@ -20,7 +21,8 @@ namespace AgentBackend.Controllers
         public class PlaceTypeRequest
         {
             [Required(ErrorMessage = "PlaceType is required")]
-            public string PlaceType { get; set; } = string.Empty;
+            public string FishType { get; set; } = string.Empty;
+            public string WaterType { get; set; } = string.Empty;
         }
 
         [HttpPost("by-type")]
@@ -34,34 +36,47 @@ namespace AgentBackend.Controllers
                     return BadRequest(ModelState);
                 }
 
-                // Фильтрация мест по типу туризма
-                var places = await _context.Places
-                    .Where(p => p.PlaceType == request.PlaceType)
-                    .Select(p => new
-                    {
-                        p.IdPlace,
-                        p.PlaceName,
-                        p.Latitude,
-                        p.Longitude,
-                        p.PlaceDescription,
-                        p.PlaceType
-                    })
-                    .ToListAsync();
+                // Базовый запрос к таблице Places
+                var query = _context.Places
+                    .Include(p => p.FishingPlaceFishes)
+                        .ThenInclude(fpf => fpf.FishType)
+                    .Include(p => p.FishingPlaceWaters)
+                        .ThenInclude(fpw => fpw.WaterType)
+                    .AsQueryable();
 
-                // Проверка, найдены ли записи
-                if (places == null || places.Count == 0)
+                // Фильтрация по видам рыб, если список не пуст
+                if (request.FishType.Any())
                 {
-                    return NotFound(new { Message = $"No places found for type '{request.PlaceType}'" });
+                    query = query.Where(p => p.FishingPlaceFishes.Any(fpf => request.FishType.Contains(fpf.FishType.FishName)));
                 }
 
+                if (request.WaterType.Any())
+                {
+                    query = query.Where(p => p.FishingPlaceWaters.Any(fpw => request.WaterType.Contains(fpw.WaterType.WaterName)));
+                }
+
+                // Формирование результата
+                var placeDtos = query.Select(p => new PlaceDto
+                {
+                    PlaceId = p.IdPlace,
+                    NamePlace = p.PlaceName,
+                    RelaxType = p.PlaceType,
+                    UserPreferences = p.UserPreferences ?? new List<string>(),
+                    PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
+                     ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                     : new List<decimal>(),
+                    Description = p.PlaceDescription,
+                   
+                }).ToList();
+
                 // Возвращаем JSON с результатами
-                return Ok(places);
+                return Ok(placeDtos);
             }
             catch (Exception ex)
             {
                 // Логирование ошибки
-                Console.WriteLine($"Error in GetPlacesByType: {ex.Message}");
-                return StatusCode(500, new { Message = "An error occurred while fetching places" });
+                Console.WriteLine($"Error in SearchFishingPlaces: {ex.Message}");
+                return StatusCode(500, new { Message = "An error occurred while searching for fishing places" });
             }
         }
 
@@ -83,18 +98,24 @@ namespace AgentBackend.Controllers
                         .ThenInclude(fpf => fpf.FishType)
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
-                    .Select(p => new
+                    .Select(p => new PlaceDto
                     {
-                        p.IdPlace,
-                        p.PlaceName,
-                        p.Latitude,
-                        p.Longitude,
-                        p.PlaceDescription,
-                        p.PlaceType,
-                        FishTypes = p.FishingPlaceFishes.Select(fpf => fpf.FishType.FishName).ToList(),
-                        WaterTypes = p.FishingPlaceWaters.Select(fpw => fpw.WaterType.WaterName).ToList()
-                    })
-                    .FirstOrDefaultAsync();
+                        NamePlace = p.PlaceName,
+                        RelaxType = p.PlaceType,
+                        UserPreferences = p.UserPreferences ?? new List<string>(),
+                        PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
+                    ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                    : new List<decimal>(),
+                        Description = p.PlaceDescription,
+                        CaughtFishes = p.FishingPlaceFishes
+                    .Select(fpf => fpf.FishType.FishName ?? "Неизвестно")
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList() ?? new List<string>(),
+                        WaterSpace = p.FishingPlaceWaters
+                    .Select(fpw => fpw.WaterType.WaterName ?? "Неизвестно")
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList() ?? new List<string>()
+                    }).FirstOrDefaultAsync();
 
                 // Проверка, найдена ли запись
                 if (place == null)
@@ -102,7 +123,6 @@ namespace AgentBackend.Controllers
                     return NotFound(new { Message = $"No place found with IdPlace '{request.IdPlace}'" });
                 }
 
-                // Возвращаем JSON с результатом
                 return Ok(place);
             }
             catch (Exception ex)
