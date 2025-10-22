@@ -36,8 +36,6 @@ class CampingQueryRequest(BaseModel):
     wish_price: Optional[float] = None
 
 
-
-
 # Модели для существующих локаций (отзывы/описания мест)
 class FishingExistingPlace(BaseModel):
     """Структура для информации о существующем месте рыбалки"""
@@ -59,9 +57,42 @@ class CampingExistingPlace(BaseModel):
     wish_price: Optional[float] = None
 
 
+class RelaxTypeClassifier(BaseModel):
+    """Схема для классификации типа отдыха"""
+    relax_type: str  # "рыбалка", "кемпинг" или "кемпинг + рыбалка"
+
+
 class RelaxAnalyzer:
     def __init__(self, model: Model):
         self.model = model
+        
+        # Контекст для определения типа отдыха
+        self.relax_type_context = """
+Определи тип отдыха на основе запроса пользователя.
+
+Типы отдыха:
+1. "рыбалка" - если пользователь упоминает:
+   - рыбалку, ловлю рыбы, рыбацкие снасти
+   - названия рыб (щука, окунь, судак, карась и т.д.)
+   - спиннинг, удочку, блесну, наживку
+   - клев, поклевку, улов
+   - рыболовные базы, места для рыбалки
+
+2. "кемпинг" - если пользователь упоминает:
+   - кемпинг, палатки, ночевку на природе
+   - места для отдыха, пикника
+   - костер, мангал, шашлыки
+   - походы, активный отдых без рыбалки
+   - инфраструктуру (душ, туалеты, беседки)
+   - отдых с семьей/детьми без упоминания рыбалки
+
+3. "кемпинг + рыбалка" - если пользователь упоминает ОБА вида отдыха:
+   - рыбалку И ночевку/палатки
+   - рыбалку И места для отдыха/кемпинга
+   - совмещение рыбалки с семейным отдыхом
+
+Верни название типа отдыха точно как указано выше в кавычках.
+"""
         
         # Контексты для рыбалки
         self.fishing_contexts = {
@@ -185,7 +216,7 @@ class RelaxAnalyzer:
                 }
                 
                 # Добавляем специфичные для рыбалки поля
-                if relax_type in RelaxType.FISHING:
+                if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
                     output["caught_fishes"] = result.caught_fishes
                     output["water_space"] = result.water_space
             else:
@@ -199,7 +230,7 @@ class RelaxAnalyzer:
                 }
                 
                 # Добавляем специфичные для рыбалки поля
-                if relax_type in RelaxType.FISHING:
+                if relax_type in [RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING]:
                     output["caught_fishes"] = result.caught_fishes
                     output["water_space"] = result.water_space
             
@@ -209,6 +240,45 @@ class RelaxAnalyzer:
             logging.error(f"Failed to analyze message: {e}")
             raise
     
+    def determine_relax_type(self, message: str) -> RelaxType:
+        """
+        Определяет тип отдыха на основе запроса пользователя
+        
+        Args:
+            message: запрос пользователя
+            
+        Returns:
+            RelaxType: определенный тип отдыха
+        """
+        try:
+            structured_llm = self.model.with_structured_output(RelaxTypeClassifier)
+            
+            messages = [
+                SystemMessage(content=self.relax_type_context),
+                HumanMessage(content=message)
+            ]
+            
+            result = structured_llm.invoke(messages)
+            
+            # Преобразуем строку в enum
+            relax_type_str = result.relax_type.lower().strip()
+            
+            if "рыбалка" in relax_type_str and "кемпинг" in relax_type_str:
+                return RelaxType.FISHING_AND_CAMPING
+            elif "рыбалка" in relax_type_str:
+                return RelaxType.FISHING
+            elif "кемпинг" in relax_type_str:
+                return RelaxType.CAMPING
+            else:
+                # По умолчанию рыбалка, если не удалось определить
+                logging.warning(f"Не удалось точно определить тип отдыха из '{relax_type_str}', используем FISHING")
+                return RelaxType.FISHING
+                
+        except Exception as e:
+            logging.error(f"Failed to determine relax type: {e}")
+            # В случае ошибки возвращаем рыбалку как наиболее вероятный вариант
+            return RelaxType.FISHING
+    
     def analyze_existing_place(self, message: str, relax_type: RelaxType) -> dict:
         """Анализирует сообщение о существующем месте отдыха"""
         return self.analyze_message(message, relax_type, RequestType.EXISTING_PLACES)
@@ -216,22 +286,3 @@ class RelaxAnalyzer:
     def analyze_user_query(self, message: str, relax_type: RelaxType) -> dict:
         """Анализирует запрос пользователя о планируемом отдыхе"""
         return self.analyze_message(message, relax_type, RequestType.QUERY_USERS)
-
-
-# Пример использования
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    
-    model = Model()
-    analyzer = RelaxAnalyzer(model)
-    
-    # Пример для рыбалки
-    fishing_message = "Хочу поймать щуку и окуня на озере, выезжаю из Автово, бюджет до 5000 рублей"
-    result = analyzer.analyze_user_query(fishing_message, RelaxType.FISHING)
-    print("Рыбалка:", result)
-    
-    # Пример для кемпинга
-    camping_message = "Нужно место с душем и электричеством, выезжаю из центра, бюджет 3000 рублей"
-    result = analyzer.analyze_user_query(camping_message, RelaxType.CAMPING)
-    print("Кемпинг:", result)
-    

@@ -196,11 +196,9 @@ async def search_fishing_spots_for_telegram(request: TelegramSearchRequest):
     6. Формирует финальный рейтинг и возвращает топ-5
     """
     try:
-        # Определяем тип отдыха из запроса
-        relax_type = RelaxType(request.relax_type) if hasattr(request, 'relax_type') else RelaxType.FISHING
         
         # Используем новую логику сравнения мест
-        places_ranked = await compare_places(request.query, relax_type)
+        places_ranked = await compare_places(request.query)
         
         # Формируем список результатов
         spots: list[Spot] = []
