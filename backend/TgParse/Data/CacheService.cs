@@ -30,10 +30,10 @@ namespace TgParse.Data
                 .Where(p => p.Latitude.HasValue && p.Longitude.HasValue)
                 .Select(p => new PlaceWithEmbeddings
                 {
-                    PlaceId = p.IdPlace,
-                    Coordinates = new List<decimal> { p.Latitude!.Value, p.Longitude!.Value },
-                    EmbeddingName = p.PlaceVectors != null ? p.PlaceVectors.NameEmbedding : null,
-                    EmbeddingPreferences = p.PlaceVectors != null ? p.PlaceVectors.PreferencesEmbedding : null
+                    location_id = p.IdPlace,
+                    coord_location = new List<decimal> { p.Latitude!.Value, p.Longitude!.Value },
+                    name_embedding = p.PlaceVectors != null ? p.PlaceVectors.NameEmbedding : null,
+                    preferences_ebbedding = p.PlaceVectors != null ? p.PlaceVectors.PreferencesEmbedding : null
                 })
                 .ToListAsync(); ; 
             string json = JsonSerializer.Serialize(places);
@@ -46,10 +46,10 @@ namespace TgParse.Data
         }
         public class PlaceWithEmbeddings
         {
-            public int PlaceId { get; set; }
-            public List<decimal>? Coordinates { get; set; }
-            public List<float>? EmbeddingName { get; set; }
-            public List<float>? EmbeddingPreferences { get; set; }
+            public int location_id { get; set; }
+            public List<decimal>? coord_location { get; set; }
+            public List<float>? name_embedding { get; set; }
+            public List<float>? preferences_ebbedding { get; set; }
         }
     }
 }
