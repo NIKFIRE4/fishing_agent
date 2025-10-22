@@ -6,10 +6,6 @@ class ImageRequest(BaseModel):
 class MessageRequest(BaseModel):
     message: str
 
-class TelegramSearchRequest(BaseModel):
-    user_id: int
-    query: str
-
 class Spot(BaseModel):
     name: str
     location_user: List[float]
@@ -34,5 +30,6 @@ class CompareLocationRequest(BaseModel):
     relax_type: str  # "рыбалка", "кемпинг" 
 
 class TelegramSearchRequest(BaseModel):
+    user_id: int
     query: str
-    relax_type: Optional[str] = "рыбалка"  # По умолчанию рыбалка
+    

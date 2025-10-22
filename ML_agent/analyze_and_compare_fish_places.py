@@ -1,3 +1,4 @@
+
 from typing import *
 import httpx
 from calculate_distance.map import get_route, geocode_name_to_coords
@@ -6,20 +7,22 @@ from endpoints.endpoints_with_backend import get_all_places_by_id, fetch_best_fi
 from model_provider import Model
 from calculate_distance.encoder import get_similarity, create_semantic_embedding
 from relax_analyzer import RelaxAnalyzer, RelaxType
+from redis_bd import RedisManager  # Импортируем Redis менеджер
 import random
 from dotenv import load_dotenv
+
 load_dotenv()
 model = Model()
 analyzer = RelaxAnalyzer(model)
+redis_manager = RedisManager()
 
-
-async def get_redis_places_embeddings() -> List[Dict]:
+async def get_redis_places_embeddings(type_of_relax: str) -> List[Dict]:
     """
     Получает все места с embeddings из Redis.
     Возвращает список вида:
     [
         {
-            "id": 1,
+            "location_id": 1,
             "name_embedding": [...],
             "preferences_embedding": [...],
             "coord_location": [lat, lon]
@@ -27,41 +30,19 @@ async def get_redis_places_embeddings() -> List[Dict]:
         ...
     ]
     """
-    # TODO: Реализовать получение из Redis
-    # Здесь заглушка
-    return [
-        {
-            "id": 1,
-            "name_embedding": [0.85, -0.12, 0.44, 0.67],
-            "preferences_embedding": [0.82, -0.10, 0.46, 0.65],
-            "coord_location": [55.751244, 37.618423]
-        },
-        {
-            "id": 2,
-            "name_embedding": [0.33, 0.91, -0.25, 0.18],
-            "preferences_embedding": [0.35, 0.89, -0.22, 0.20],
-            "coord_location": [59.9311, 30.3609]
-        },
-        {
-            "id": 3,
-            "name_embedding": [-0.41, 0.77, 0.59, -0.05],
-            "preferences_embedding": [-0.39, 0.75, 0.61, -0.03],
-            "coord_location": [60.1699, 24.9384]
-        },
-        {
-            "id": 4,
-            "name_embedding": [0.12, -0.66, 0.88, 0.31],
-            "preferences_embedding": [0.14, -0.64, 0.90, 0.29],
-            "coord_location": [61.5240, 105.3188]
-        }
-    ]
+    try:
+        places = redis_manager.get_all_places(type_of_relax)
+        return places if places else []
+    except Exception as e:
+        print(f"Ошибка при получении данных из Redis: {e}")
+        return []
 
 
 async def calculate_combined_metric(
     similarity_score: float,
     distance_km: Optional[float],
-    similarity_weight: float = 0.6,
-    distance_weight: float = 0.4,
+    similarity_weight: float = 0.5,
+    distance_weight: float = 0.5,
     max_distance: float = 100.0
 ) -> float:
     """
@@ -88,7 +69,7 @@ async def calculate_combined_metric(
     return combined
 
 
-async def compare_places(query_user: str, relax_type: RelaxType) -> List[Dict]:
+async def compare_places(query_user: str) -> List[Dict]:
     """
     Логика поиска мест:
     1. Если wish_locations задан:
@@ -111,9 +92,11 @@ async def compare_places(query_user: str, relax_type: RelaxType) -> List[Dict]:
     Returns:
         Список мест отсортированный по комбинированному рейтингу
     """
-    
+    relax_type = analyzer.determine_relax_type(query_user)
     # 1. Анализируем запрос пользователя
     short_info = analyzer.analyze_user_query(query_user, relax_type)
+    
+    type_of_relax = short_info.get("type_of_relax")
     
     wish_locations = short_info.get("wish_location", [])
     caught_fishes = short_info.get("caught_fishes", [])
@@ -143,7 +126,7 @@ async def compare_places(query_user: str, relax_type: RelaxType) -> List[Dict]:
         wish_locations_emb = create_semantic_embedding(wish_locations)
         
         # Получаем все места из Redis
-        all_redis_places = await get_redis_places_embeddings()
+        all_redis_places = await get_redis_places_embeddings(type_of_relax)
         
         # Ищем по векторам названий + рассчитываем комбинированную метрику
         places_with_metrics = []
@@ -190,11 +173,11 @@ async def compare_places(query_user: str, relax_type: RelaxType) -> List[Dict]:
         return final_results
     
     # === СЛУЧАЙ 2: Кемпинг без wish_locations ===
-    elif relax_type != RelaxType.FISHING:
+    elif type_of_relax == RelaxType.CAMPING:
         print("Режим: Кемпинг - поиск по preferences из Redis")
         
         # Получаем все места из Redis
-        all_redis_places = await get_redis_places_embeddings()
+        all_redis_places = await get_redis_places_embeddings(type_of_relax)
         
         # Рассчитываем комбинированную метрику (preferences + расстояние)
         places_with_metrics = []
