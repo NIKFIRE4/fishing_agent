@@ -107,7 +107,6 @@ namespace AgentBackend.Controllers
             }
             catch (Exception ex)
             {
-                // Логирование ошибки
                 Console.WriteLine($"Error in GetPlaceById: {ex.Message}");
                 return StatusCode(500, new { Message = "An error occurred while fetching the place" });
             }

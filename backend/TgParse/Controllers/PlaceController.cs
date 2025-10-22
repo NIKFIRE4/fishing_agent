@@ -5,6 +5,8 @@ using DBShared;
 using DBShared.Models;
 using TgParse.Services;
 using TL.Methods;
+using Minio.DataModel;
+using TgParse.Data;
 
 
 namespace TgParse.Controllers
@@ -14,12 +16,20 @@ namespace TgParse.Controllers
     public class PlacesController : ControllerBase
     {
         private readonly ApplicationContext _context;
+        private readonly CacheService _cacheService;
 
-        public PlacesController(ApplicationContext context)
+        public PlacesController(ApplicationContext context, CacheService cacheService)
         {
             _context = context;
+            _cacheService = cacheService;
         }
 
+        [HttpPost("refresh-cache")]
+        public async Task<IActionResult> RefreshCache([FromServices] CacheService cacheService)
+        {
+            //await cacheService.CacheAllPlacesAsync();
+            return Ok("Кэш обновлён");
+        }
 
         [HttpPost]
         public async Task<ActionResult<List<PlaceDto>>> Parse([FromBody] TourismType request)
