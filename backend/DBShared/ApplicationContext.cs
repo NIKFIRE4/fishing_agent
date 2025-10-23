@@ -17,8 +17,11 @@ namespace DBShared
         public DbSet<PlaceVectors> PlaceVectors { get; set; }
         public DbSet<FishingPlaceFish> FishingPlaceFish { get; set; }
         public DbSet<FishingPlaceWater> FishingPlaceWater { get; set; }
-        public DbSet<User> users { get; set; }
+        public DbSet<UserBot> users_bot { get; set; }
+        public DbSet<UserCroud> users {  get; set; }
+
         public DbSet<SelectedSpot> selected_fishing_spots { get; set; }
+
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -121,14 +124,17 @@ namespace DBShared
                 .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
-            modelBuilder.Entity<User>()
+            modelBuilder.Entity<UserBot>()
                 .HasMany(u => u.selected_spots)
                 .WithOne(s => s.user)
                 .HasForeignKey(s => s.user_id)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<UserCroud>()
+                .HasIndex(u => u.UserId)
+                .IsUnique();
 
-            modelBuilder.Entity<User>()
+            modelBuilder.Entity<UserBot>()
                 .HasIndex(u => u.tg_id)
                 .IsUnique();
 

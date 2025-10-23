@@ -51,7 +51,7 @@ namespace TgParse
             var app = builder.Build();
 
             // Применяем миграции при старте
-            ApplyMigrations(app.Services);
+            //ApplyMigrations(app.Services);
 
             // Настройка FFmpeg
             GlobalFFOptions.Configure(options =>

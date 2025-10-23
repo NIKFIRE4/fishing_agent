@@ -42,6 +42,7 @@ namespace AgentBackend.Controllers
                         .ThenInclude(fpf => fpf.FishType)
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
+                        .Include(p => p.PlaceVectors)
                     .AsQueryable();
 
                 // Фильтрация по видам рыб, если список не пуст
@@ -56,11 +57,14 @@ namespace AgentBackend.Controllers
                 }
 
                 // Формирование результата
-                var placeDtos = query.Select(p => new PlaceDto
+                var placeDtos = query.Select(p => new PlaceDtoBot
                 {
                     PlaceId = p.IdPlace,
                     NamePlace = p.PlaceName,
                     RelaxType = p.PlaceType,
+                    IdVector = p.PlaceVectors.IdVector,
+                    NameEmbedding = p.PlaceVectors.NameEmbedding,
+                    PreferencesEmbedding = p.PlaceVectors.PreferencesEmbedding,
                     UserPreferences = p.UserPreferences ?? new List<string>(),
                     PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
                      ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
@@ -98,11 +102,15 @@ namespace AgentBackend.Controllers
                         .ThenInclude(fpf => fpf.FishType)
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
-                    .Select(p => new PlaceDto
+                        .Include(p => p.PlaceVectors)
+                    .Select(p => new PlaceDtoBot
                     {
+                        PlaceId = p.IdPlace,
                         NamePlace = p.PlaceName,
                         RelaxType = p.PlaceType,
                         UserPreferences = p.UserPreferences ?? new List<string>(),
+                        NameEmbedding = p.PlaceVectors.NameEmbedding,
+                        PreferencesEmbedding = p.PlaceVectors.PreferencesEmbedding,
                         PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
                     ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
                     : new List<decimal>(),

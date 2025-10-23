@@ -34,7 +34,7 @@ namespace DBShared.Models
 
         public DateTime selected_at { get; set; } = DateTime.UtcNow;
         [ForeignKey("user_id")]
-        public User user { get; set; } = null!;
+        public UserBot user { get; set; } = null!;
     }
     
 }

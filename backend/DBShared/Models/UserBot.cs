@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace DBShared.Models
 {
-    public class User
+    public class UserBot
     {
         [Key]
         public int id { get; set; }
