@@ -154,7 +154,7 @@ async def compare_places(query_user: str) -> List[Dict]:
             combined_metric = await calculate_combined_metric(name_similarity, distance_km)
             
             places_with_metrics.append({
-                "id": place["id"],
+                "id": place["location_id"],
                 "combined_metric": combined_metric,
                 "name_similarity": name_similarity,
                 "distance_km": distance_km
@@ -240,7 +240,6 @@ async def compare_places(query_user: str) -> List[Dict]:
         places_with_metrics = []
         
         for place in fishing_places:
-            # Используем готовый preferences_embedding из места (должен быть в Redis/БД)
             place_prefs_emb = place.get("preferences_embedding")
             
             if not place_prefs_emb:

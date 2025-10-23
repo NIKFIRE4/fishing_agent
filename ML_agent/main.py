@@ -138,7 +138,7 @@ async def compare_location(request: CompareLocationRequest):
                     }
                     
                     # Добавляем специфичные поля для рыбалки
-                    if relax_type in RelaxType.FISHING:
+                    if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
                         response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
                         response_data["water_space"] = updated_short.get("water_space", [])
                     
@@ -166,7 +166,7 @@ async def compare_location(request: CompareLocationRequest):
         }
         
         # Добавляем специфичные поля для рыбалки
-        if relax_type in RelaxType.FISHING:
+        if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
             response_data["caught_fishes"] = short_message.get("caught_fishes", [])
             response_data["water_space"] = short_message.get("water_space", [])
         
