@@ -85,24 +85,28 @@ namespace AgentBackend.Controllers
         }
 
         [HttpPost("by-id")]
-        public async Task<IActionResult> GetPlaceById([FromBody] PlaceIdRequest request)
+        public async Task<IActionResult> GetPlacesByIds([FromBody] PlacesIdsRequest request)
         {
             try
             {
-                // Проверка валидности входных данных
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
 
-                // Поиск места по IdPlace с загрузкой связанных данных
-                var place = await _context.Places
-                    .Where(p => p.IdPlace == request.IdPlace)
+                if (request.IdPlaces == null || !request.IdPlaces.Any())
+                {
+                    return Ok(new List<PlaceDtoBot>()); 
+                }
+
+                // Поиск мест по списку ID с загрузкой связанных данных
+                var places = await _context.Places
+                    .Where(p => request.IdPlaces.Contains(p.IdPlace)) 
                     .Include(p => p.FishingPlaceFishes)
                         .ThenInclude(fpf => fpf.FishType)
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
-                        .Include(p => p.PlaceVectors)
+                    .Include(p => p.PlaceVectors)
                     .Select(p => new PlaceDtoBot
                     {
                         PlaceId = p.IdPlace,
@@ -112,39 +116,72 @@ namespace AgentBackend.Controllers
                         NameEmbedding = p.PlaceVectors.NameEmbedding,
                         PreferencesEmbedding = p.PlaceVectors.PreferencesEmbedding,
                         PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
-                    ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
-                    : new List<decimal>(),
+                            ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                            : new List<decimal>(),
                         Description = p.PlaceDescription,
                         CaughtFishes = p.FishingPlaceFishes
-                    .Select(fpf => fpf.FishType.FishName ?? "Неизвестно")
-                    .Where(name => !string.IsNullOrEmpty(name))
-                    .ToList() ?? new List<string>(),
+                            .Select(fpf => fpf.FishType.FishName ?? "Неизвестно")
+                            .Where(name => !string.IsNullOrEmpty(name))
+                            .ToList() ?? new List<string>(),
                         WaterSpace = p.FishingPlaceWaters
-                    .Select(fpw => fpw.WaterType.WaterName ?? "Неизвестно")
-                    .Where(name => !string.IsNullOrEmpty(name))
-                    .ToList() ?? new List<string>()
-                    }).FirstOrDefaultAsync();
+                            .Select(fpw => fpw.WaterType.WaterName ?? "Неизвестно")
+                            .Where(name => !string.IsNullOrEmpty(name))
+                            .ToList() ?? new List<string>()
+                    })
+                    .ToListAsync(); 
 
-                // Проверка, найдена ли запись
-                if (place == null)
+                // Если ничего не найдено, вернём пустой список
+                if (!places.Any())
                 {
-                    return NotFound(new { Message = $"No place found with IdPlace '{request.IdPlace}'" });
+                    return Ok(new List<PlaceDtoBot>()); 
                 }
 
-                return Ok(place);
+                return Ok(places);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in GetPlaceById: {ex.Message}");
-                return StatusCode(500, new { Message = "An error occurred while fetching the place" });
+                Console.WriteLine($"Error in GetPlacesByIds: {ex.Message}");
+                return StatusCode(500, new { Message = "An error occurred while fetching the places" });
             }
         }
 
-        public class PlaceIdRequest
+        public class PlacesIdsRequest : IValidatableObject
         {
-            [Required(ErrorMessage = "IdPlace is required")]
-            [Range(1, int.MaxValue, ErrorMessage = "IdPlace must be a positive integer")]
-            public int IdPlace { get; set; }
+            [Required(ErrorMessage = "IdPlaces is required")]
+            public List<int>? IdPlaces { get; set; }
+
+
+            public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+            {
+                if (IdPlaces != null)
+                {
+                    foreach (var id in IdPlaces)
+                    {
+                        if (id <= 0)
+                        {
+                            yield return new ValidationResult(
+                                $"Each IdPlace must be a positive integer (greater than 0). Invalid value: {id}",
+                                new[] { nameof(IdPlaces) });
+                        }
+                    }
+
+                    // Опционально: проверка на уникальность (удаляем дубликаты автоматически или выдаём ошибку)
+                    if (IdPlaces.Distinct().Count() != IdPlaces.Count)
+                    {
+                        yield return new ValidationResult(
+                            "IdPlaces must contain unique values (no duplicates)",
+                            new[] { nameof(IdPlaces) });
+                    }
+
+                    // Опционально: лимит на размер списка
+                    if (IdPlaces.Count > 100) // Пример: не больше 100 ID за раз
+                    {
+                        yield return new ValidationResult(
+                            "IdPlaces list cannot exceed 100 items",
+                            new[] { nameof(IdPlaces) });
+                    }
+                }
+            }
         }
     }
 }
