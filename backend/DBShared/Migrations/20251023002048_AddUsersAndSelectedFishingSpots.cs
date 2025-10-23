@@ -16,6 +16,26 @@ namespace DBShared.Migrations
                 name: "users",
                 columns: table => new
                 {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserId = table.Column<long>(type: "bigint", nullable: false),
+                    Username = table.Column<string>(type: "text", nullable: true),
+                    FirstName = table.Column<string>(type: "text", nullable: true),
+                    LastName = table.Column<string>(type: "text", nullable: true),
+                    RegistrationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    PostsCount = table.Column<int>(type: "integer", nullable: false),
+                    SubmittedPostsCount = table.Column<int>(type: "integer", nullable: false),
+                    LastActivity = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "users_bot",
+                columns: table => new
+                {
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     tg_id = table.Column<long>(type: "bigint", nullable: false),
@@ -26,7 +46,7 @@ namespace DBShared.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_users", x => x.id);
+                    table.PrimaryKey("PK_users_bot", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -47,9 +67,9 @@ namespace DBShared.Migrations
                 {
                     table.PrimaryKey("PK_selected_fishing_spots", x => x.id);
                     table.ForeignKey(
-                        name: "FK_selected_fishing_spots_users_user_id",
+                        name: "FK_selected_fishing_spots_users_bot_user_id",
                         column: x => x.user_id,
-                        principalTable: "users",
+                        principalTable: "users_bot",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -60,8 +80,14 @@ namespace DBShared.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_users_tg_id",
+                name: "IX_users_UserId",
                 table: "users",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_users_bot_tg_id",
+                table: "users_bot",
                 column: "tg_id",
                 unique: true);
         }
@@ -74,6 +100,9 @@ namespace DBShared.Migrations
 
             migrationBuilder.DropTable(
                 name: "users");
+
+            migrationBuilder.DropTable(
+                name: "users_bot");
         }
     }
 }

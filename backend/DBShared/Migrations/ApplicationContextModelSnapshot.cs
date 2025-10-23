@@ -251,7 +251,7 @@ namespace DBShared.Migrations
                     b.ToTable("TgPhotos");
                 });
 
-            modelBuilder.Entity("DBShared.Models.User", b =>
+            modelBuilder.Entity("DBShared.Models.UserBot", b =>
                 {
                     b.Property<int>("id")
                         .ValueGeneratedOnAdd()
@@ -280,6 +280,46 @@ namespace DBShared.Migrations
                     b.HasKey("id");
 
                     b.HasIndex("tg_id")
+                        .IsUnique();
+
+                    b.ToTable("users_bot");
+                });
+
+            modelBuilder.Entity("DBShared.Models.UserCroud", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FirstName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("LastActivity")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PostsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("RegistrationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SubmittedPostsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Username")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
                         .IsUnique();
 
                     b.ToTable("users");
@@ -355,7 +395,7 @@ namespace DBShared.Migrations
 
             modelBuilder.Entity("DBShared.Models.SelectedSpot", b =>
                 {
-                    b.HasOne("DBShared.Models.User", "user")
+                    b.HasOne("DBShared.Models.UserBot", "user")
                         .WithMany("selected_spots")
                         .HasForeignKey("user_id")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -418,7 +458,7 @@ namespace DBShared.Migrations
                     b.Navigation("Photos");
                 });
 
-            modelBuilder.Entity("DBShared.Models.User", b =>
+            modelBuilder.Entity("DBShared.Models.UserBot", b =>
                 {
                     b.Navigation("selected_spots");
                 });
