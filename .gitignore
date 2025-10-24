@@ -89,3 +89,7 @@
 /backend/AgentBackend/obj/Release/net9.0/AgentBackend.GeneratedMSBuildEditorConfig.editorconfig
 /backend/AgentBackend/obj/Debug/net9.0/AgentBackend.GeneratedMSBuildEditorConfig.editorconfig
 /TG_bot_FishAgent/.env
+/backend/AgentBackend/Properties/Resources.Designer.cs
+/backend/AgentBackend/Properties/Resources.resx
+/backend/AgentBackend/Properties/launchSettings.json
+/backend/AgentBackend/AgentBackend.csproj.user

@@ -89,9 +89,9 @@ services:
         - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
         - ASPNETCORE_ENVIRONMENT=Development
         - ASPNETCORE_URLS=http://+:8003
-
+    
     ports: 
-        - "8003:8003"
+    - "8003:8003"
     depends_on:
       ml_service:
         condition: service_started
@@ -100,7 +100,7 @@ services:
       mc:
         condition: service_started    
       db:
-        condition: service_started       
+        condition: service_started
 
   parsing_service:
     # env_file:
