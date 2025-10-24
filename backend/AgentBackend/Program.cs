@@ -30,16 +30,16 @@ namespace AgentBackend
         public static void Main(string[] args)
         {
             DotNetEnv.Env.Load();
-            //var serviceCollection = new ServiceCollection();
-            //ConfigureServices(serviceCollection);
-            //var serviceProvider = serviceCollection.BuildServiceProvider();
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            //using (var scope = serviceProvider.CreateScope())
-            //{
-            //    var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-            //    ApplyMigrations(context);
-            //}
-            //using ApplicationContext db = new();
+            using (var scope = serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+                ApplyMigrations(context);
+            }
+            using ApplicationContext db = new();
 
             var builder = WebApplication.CreateBuilder(args);
 

@@ -45,14 +45,19 @@ services:
 
   redis:
       image: redis:latest
-      env_file:
-       - ./backend/TgParse/.env
+      # env_file:
+      #  - ./backend/TgParse/.env
       container_name: redis_cache
       ports:
         - "6379:6379"
-      # environment:
-      # - REDIS_PASSWORD=${REDIS_PASSWORD}
+      environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       command: redis-server --requirepass ${REDIS_PASSWORD}
+      healthcheck:
+          test: ["CMD", "redis-cli", "ping"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
       volumes:
         - redis_data:/data
   # migrator:
@@ -73,15 +78,15 @@ services:
   #         /root/.dotnet/tools/dotnet-ef database update --verbose"
   
   agent_backend:
-    env_file:
-    - ./backend/TgParse/.env
+    # env_file:
+    # - ./backend/TgParse/.env
     build:
         context: ./backend
         dockerfile: AgentBackend/Dockerfile
     image: agent-backend:lattest
     container_name: agent_backend
     environment:
-        # - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+        - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
         - ASPNETCORE_ENVIRONMENT=Development
         - ASPNETCORE_URLS=http://+:8003
 
@@ -98,8 +103,8 @@ services:
         condition: service_started       
 
   parsing_service:
-    env_file:
-       - ./backend/TgParse/.env
+    # env_file:
+    #    - ./backend/TgParse/.env
     build:
       context: ./backend
       dockerfile: TgParse/Dockerfile
@@ -120,12 +125,17 @@ services:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
       - TELEGRAM_PHONE_NUMBER=${TELEGRAM_PHONE_NUMBER}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PORT=${REDIS_PORT}
     ports:
       - "8002:8002"
    
     volumes:
       - ./wtelegram:/App/wtelegram
     depends_on:
+      redis:
+        condition: service_healthy
       ml_service:
         condition: service_started
       minio:
@@ -138,8 +148,8 @@ services:
       #   condition: service_completed_successfully
      
   minio:
-    env_file:
-       - ./backend/TgParse/.env
+    # env_file:
+    #    - ${PWD}/backend/TgParse/.env
     image: minio/minio:latest
     container_name: minio
     ports:
@@ -153,8 +163,8 @@ services:
     command: server /data --console-address :9001
 
   mc:
-    env_file:
-       - ./backend/TgParse/.env
+    # env_file:
+    #    - ${PWD}/backend/TgParse/.env
     image: minio/mc:latest
     container_name: mc
     depends_on:
@@ -171,8 +181,8 @@ services:
       tail -f /dev/null"    
 
   db:
-    env_file:
-       - ./backend/TgParse/.env
+    # env_file:
+    #    - ./backend/TgParse/.env
     image: postgres:14
     container_name: postgres_db
     
@@ -196,12 +206,12 @@ services:
     #       start_period: 15s     
 
   pgadmin:
-    env_file:
-       - ./backend/TgParse/.env
+    # env_file:
+    #    - ./backend/TgParse/.env
     image: dpage/pgadmin4
-    # environment:
-    #   - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
-    #   - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - "8080:80"    
     depends_on:
