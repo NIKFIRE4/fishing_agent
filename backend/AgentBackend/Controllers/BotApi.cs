@@ -3,6 +3,7 @@ using DBShared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 
 namespace AgentBackend.Controllers
 {    
@@ -20,9 +21,66 @@ namespace AgentBackend.Controllers
 
         public class PlaceTypeRequest
         {
-            [Required(ErrorMessage = "PlaceType is required")]
-            public string FishType { get; set; } = string.Empty;
-            public string WaterType { get; set; } = string.Empty;
+            private JsonElement _fishType;
+            private JsonElement _waterType;
+
+            [Required(ErrorMessage = "FishType is required")]
+            public JsonElement FishType
+            {
+                get => _fishType;
+                set => _fishType = value;
+            }
+
+            public JsonElement WaterType
+            {
+                get => _waterType;
+                set => _waterType = value;
+            }
+
+            public List<string> GetFishTypeList()
+            {
+                return ConvertToStringList(_fishType);
+            }
+
+            public List<string> GetWaterTypeList()
+            {
+                return ConvertToStringList(_waterType);
+            }
+
+            private static List<string> ConvertToStringList(JsonElement element)
+            {
+                var result = new List<string>();
+
+                if (element.ValueKind == JsonValueKind.Null)
+                {
+                    return result; 
+                }
+
+                if (element.ValueKind == JsonValueKind.String)
+                {
+                    string value = element.GetString();
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        result.Add(value);
+                    }
+                }
+                else if (element.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            string value = item.GetString();
+                            if (!string.IsNullOrEmpty(value))
+                            {
+                                result.Add(value);
+                            }
+                        }
+                    }
+                }
+
+                return result;
+            }
         }
 
         [HttpPost("by-type")]
@@ -30,33 +88,33 @@ namespace AgentBackend.Controllers
         {
             try
             {
-                // Проверка валидности входных данных
+
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
-
-                // Базовый запрос к таблице Places
+                var fishTypes = request.GetFishTypeList();
+                var waterTypes = request.GetWaterTypeList();
+                
                 var query = _context.Places
                     .Include(p => p.FishingPlaceFishes)
                         .ThenInclude(fpf => fpf.FishType)
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
-                        .Include(p => p.PlaceVectors)
+                    .Include(p => p.PlaceVectors)
                     .AsQueryable();
 
-                // Фильтрация по видам рыб, если список не пуст
-                if (request.FishType.Any())
+                if (fishTypes.Any())
                 {
-                    query = query.Where(p => p.FishingPlaceFishes.Any(fpf => request.FishType.Contains(fpf.FishType.FishName)));
+                    query = query.Where(p => p.FishingPlaceFishes.Any(fpf => fishTypes.Contains(fpf.FishType.FishName)));
                 }
 
-                if (request.WaterType.Any())
+
+                if (waterTypes.Any())
                 {
-                    query = query.Where(p => p.FishingPlaceWaters.Any(fpw => request.WaterType.Contains(fpw.WaterType.WaterName)));
+                    query = query.Where(p => p.FishingPlaceWaters.Any(fpw => waterTypes.Contains(fpw.WaterType.WaterName)));
                 }
 
-                // Формирование результата
                 var placeDtos = query.Select(p => new PlaceDtoBot
                 {
                     PlaceId = p.IdPlace,
@@ -67,18 +125,15 @@ namespace AgentBackend.Controllers
                     PreferencesEmbedding = p.PlaceVectors.PreferencesEmbedding,
                     UserPreferences = p.UserPreferences ?? new List<string>(),
                     PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
-                     ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
-                     : new List<decimal>(),
+                        ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                        : new List<decimal>(),
                     Description = p.PlaceDescription,
-                   
                 }).ToList();
 
-                // Возвращаем JSON с результатами
                 return Ok(placeDtos);
             }
             catch (Exception ex)
             {
-                // Логирование ошибки
                 Console.WriteLine($"Error in SearchFishingPlaces: {ex.Message}");
                 return StatusCode(500, new { Message = "An error occurred while searching for fishing places" });
             }
@@ -130,7 +185,6 @@ namespace AgentBackend.Controllers
                     })
                     .ToListAsync(); 
 
-                // Если ничего не найдено, вернём пустой список
                 if (!places.Any())
                 {
                     return Ok(new List<PlaceDtoBot>()); 

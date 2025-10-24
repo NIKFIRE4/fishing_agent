@@ -10,7 +10,7 @@ class RedisManager:
         
 
         self.client = redis.Redis(
-            host="localhost",
+            host="redis",
             port=int(os.getenv('REDIS_PORT', '6379')),
             password=os.getenv('REDIS_PASSWORD', '1lomalsteklo'),
             decode_responses=True
