@@ -38,7 +38,7 @@ namespace TgParse.Data
                 })
                 .ToListAsync(); ; 
             string json = JsonSerializer.Serialize(places);
-            await _db.StringSetAsync("all_places", json, TimeSpan.FromHours(1)); // TTL 1 час
+            await _db.StringSetAsync("all_places", json, TimeSpan.FromHours(10)); 
         }
 
         public async Task InvalidateCacheAsync()
