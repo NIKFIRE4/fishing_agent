@@ -1,8 +1,8 @@
 import httpx
 
 BACKEND_URL = "http://parsing_service:8002/api/Places"
-BOT_BACKEND_URL = "http://localhost:8003/api"
-#BOT_BACKEND_URL = "http://parsing_service:8003/api"
+#BOT_BACKEND_URL = "http://localhost:8003/api"
+BOT_BACKEND_URL = "http://agent_backend:8003/api"
 #BACKEND_URL = "http://localhost:8002/api/Places"
 
 
