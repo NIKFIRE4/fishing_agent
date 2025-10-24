@@ -21,6 +21,7 @@ class RequestType(Enum):
 class FishingQueryRequest(BaseModel):
     """Структура для запросов о планируемой рыбалке"""
     wish_location: Optional[List[str]] = []
+    location_user: Optional[str]= None
     user_preferences: Optional[List[str]] = []
     user_coordinates: Optional[List[float]] = []
     caught_fishes: Optional[List[str]] = []
@@ -31,6 +32,7 @@ class FishingQueryRequest(BaseModel):
 class CampingQueryRequest(BaseModel):
     """Структура для запросов о планируемом кемпинге"""
     wish_location: Optional[List[str]] = [None]
+    location_user: Optional[str]= None
     user_preferences: Optional[List[str]] = []
     user_coordinates: Optional[List[float]] = []
     wish_price: Optional[float] = None
@@ -123,6 +125,7 @@ class RelaxAnalyzer:
             RequestType.QUERY_USERS: """
             Извлеки информацию о планируемой рыбалке из сообщения пользователя:
             - wish_location: место, куда пользователь хочет поехать, например ['Карельский перешеек'] или ['озера Ленобласти']
+            - location_user: название места откуда выезжает пользователь, если указано, например "Станция метро Автово"
             - user_preferences: общие предпочтения и пожелания пользователя, например ['хочу тихое место', 'нужна парковка', 'глубокое место', 'с пирсом', 'можно с ночевкой']
             - user_coordinates: координаты места откуда человек планирует выехать (город, район), например [59.861234, 30.154855]
             - caught_fishes: рыбы, которых пользователь хочет поймать, например ['щука', 'окунь']
@@ -157,6 +160,7 @@ class RelaxAnalyzer:
             RequestType.QUERY_USERS: """
             Извлеки информацию о планируемом кемпинге из сообщения пользователя:
             - wish_location: место, куда пользователь хочет поехать, например ['Карелия'] или ['побережье Финского залива']
+            - location_user: название места откуда выезжает пользователь, если указано, например "Станция метро Автово"
             - user_preferences: список пожеланий пользователя, например ['нужен душ', 'хочу место с костровищем', 'желательно у воды', 'тихое место', 'можно с собакой', 'есть пляж']
             - user_coordinates: координаты места откуда человек планирует выехать, например [59.861234, 30.154855]
             - wish_price: желаемый бюджет (в рублях), если указан
@@ -224,6 +228,7 @@ class RelaxAnalyzer:
                 output = {
                     "type_of_relax": relax_type.value,
                     "wish_location": result.wish_location,
+                    "location_user": result.location_user,
                     "user_preferences": result.user_preferences,
                     "user_coordinates": result.user_coordinates,
                     "wish_price": result.wish_price

@@ -203,16 +203,15 @@ async def search_fishing_spots_for_telegram(request: TelegramSearchRequest):
         # Формируем список результатов
         spots: list[Spot] = []
         for place in places_ranked:
-            raw_coords = place.get("coordinates", [])
+            raw_coords = place.get("place_coordinates", [])
             raw_user_loc = place.get("location_user", [])
             description_full = place.get("description", "")
-            short_desc_obj = place.get("short_description", {})
+            
             
             spot = Spot(
-                name=place.get("name_place", [None])[0] or "Неизвестно",
+                name=place.get("name_place", [None]) or "Неизвестно",
                 location_user=raw_user_loc,
                 description=description_full,
-                short_description=short_desc_obj,
                 coordinates=raw_coords,
                 distance_km=place.get("distance_km")
             )

@@ -34,7 +34,7 @@ async def get_all_places_by_id(
     places_ids: list[int]
 ) -> list[dict]:
     payload = {
-        "place_ids": places_ids
+        "idPlaces": places_ids
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(f"{BOT_BACKEND_URL}/BotApi/by-id", json=payload)

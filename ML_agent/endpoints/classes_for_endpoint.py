@@ -10,7 +10,6 @@ class Spot(BaseModel):
     name: str
     location_user: List[float]
     description: str
-    short_description: dict
     coordinates: List[float]
     distance_km: Optional[float] = None
 
