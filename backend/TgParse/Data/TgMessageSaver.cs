@@ -4,7 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TgParse.Data;
-using TgParse.Models;
+using DBShared.Models;
+using DBShared;
 using TgParse.Services;
 
 namespace TgParse.Data
@@ -22,6 +23,7 @@ namespace TgParse.Data
                     MessageText = messageText,
                     MessageId = messageId,
                     SourceUrl = channelName,
+                    IsProcessed = false,
                 };
                 bool exists = db.TgMessages.Any(m => m.MessageId == message.MessageId);
                 if (exists)

@@ -1,8 +1,8 @@
 ﻿using HtmlAgilityPack;
 using System.Text.RegularExpressions;
+using DBShared;
 using TgParse.Data;
 using TgParse.Helpers;
-using TgParse.Models;
 using TL;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -169,7 +169,7 @@ namespace TgParse.Services
                         if (msgBase is Message msg)
                         {
                             string messageText = msgBase.message ?? "<пустое сообщение>";
-                            if (messageText != null && !messageText.Contains("#реклама") && messageText != "")
+                            if (messageText != null && !messageText.Contains("#реклама") && messageText != "" && messageText.Contains("#"))
                             {
                                 if (messageDbText != "")
                                 {

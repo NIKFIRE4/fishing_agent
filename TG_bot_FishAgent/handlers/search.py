@@ -134,6 +134,61 @@ async def process_calendar_selection(callback: CallbackQuery,
         parse_mode='HTML'
     )
 
+
+
+# ДОБАВЛЕН ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ
+@search_router.message(SearchStates.waiting_for_search_request, F.text)
+async def process_text_search_request(message: Message, state: FSMContext):
+    """
+    Обработка текстового сообщения пользователя для поискового запроса.
+    """
+    user_request = message.text.strip()
+    
+    if not user_request:
+        await message.answer("Пожалуйста, введите ваш запрос для поиска мест рыбалки.")
+        return
+    
+    # Показываем индикатор обработки
+    processing_msg = await message.answer("🔍 Ищу места для рыбалки...")
+    
+    # Обрабатываем запрос
+    await process_search_query(message, state, user_request, processing_msg)
+
+@search_router.message(SearchStates.waiting_for_search_request, F.voice)
+async def process_voice_search_request(message: Message, state: FSMContext):
+    """
+    Обработка голосового сообщения пользователя для поискового запроса.
+    """
+    # Показываем индикатор обработки
+    processing_msg = await message.answer("🎤 Распознаю речь...")
+
+    try:
+        # Используем наш модуль для обработки голоса, передаем bot
+        result = await process_voice_message(message.voice, message.bot)
+        
+        if result["success"]:
+            user_request = result["text"]
+            
+            # Показываем распознанный текст пользователю
+            await processing_msg.edit_text(
+                f"✅ Распознано: <i>«{user_request}»</i>\n\n🔍 Ищу места для рыбалки...", 
+                parse_mode='HTML'
+            )
+            
+            # Обрабатываем запрос
+            await process_search_query(message, state, user_request, processing_msg)
+        else:
+            # Показываем ошибку
+            await processing_msg.edit_text(
+                f"❌ {result['error']}. Попробуйте еще раз или отправьте текстовое сообщение."
+            )
+        
+    except Exception as e:
+        logger.error(f"Ошибка при обработке голосового сообщения: {e}")
+        await processing_msg.edit_text(
+            "❌ Произошла ошибка при распознавании речи. Попробуйте отправить текстовое сообщение."
+        )
+
 async def process_search_query(message: Message, state: FSMContext, user_request: str, processing_msg: Message):
     """
     Общая функция для обработки поискового запроса (текстового или голосового).
@@ -190,59 +245,6 @@ async def process_search_query(message: Message, state: FSMContext, user_request
             reply_markup=get_start_keyboard()
         )
         await state.clear()
-
-# ДОБАВЛЕН ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ
-@search_router.message(SearchStates.waiting_for_search_request, F.text)
-async def process_text_search_request(message: Message, state: FSMContext):
-    """
-    Обработка текстового сообщения пользователя для поискового запроса.
-    """
-    user_request = message.text.strip()
-    
-    if not user_request:
-        await message.answer("Пожалуйста, введите ваш запрос для поиска мест рыбалки.")
-        return
-    
-    # Показываем индикатор обработки
-    processing_msg = await message.answer("🔍 Ищу места для рыбалки...")
-    
-    # Обрабатываем запрос
-    await process_search_query(message, state, user_request, processing_msg)
-
-@search_router.message(SearchStates.waiting_for_search_request, F.voice)
-async def process_voice_search_request(message: Message, state: FSMContext):
-    """
-    Обработка голосового сообщения пользователя для поискового запроса.
-    """
-    # Показываем индикатор обработки
-    processing_msg = await message.answer("🎤 Распознаю речь...")
-
-    try:
-        # Используем наш модуль для обработки голоса, передаем bot
-        result = await process_voice_message(message.voice, message.bot)
-        
-        if result["success"]:
-            user_request = result["text"]
-            
-            # Показываем распознанный текст пользователю
-            await processing_msg.edit_text(
-                f"✅ Распознано: <i>«{user_request}»</i>\n\n🔍 Ищу места для рыбалки...", 
-                parse_mode='HTML'
-            )
-            
-            # Обрабатываем запрос
-            await process_search_query(message, state, user_request, processing_msg)
-        else:
-            # Показываем ошибку
-            await processing_msg.edit_text(
-                f"❌ {result['error']}. Попробуйте еще раз или отправьте текстовое сообщение."
-            )
-        
-    except Exception as e:
-        logger.error(f"Ошибка при обработке голосового сообщения: {e}")
-        await processing_msg.edit_text(
-            "❌ Произошла ошибка при распознавании речи. Попробуйте отправить текстовое сообщение."
-        )
 
 @search_router.message(F.voice)
 async def handle_unexpected_voice(message: Message, state: FSMContext):

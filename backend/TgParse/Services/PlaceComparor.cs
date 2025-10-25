@@ -1,42 +1,33 @@
-﻿using System.Text.Json;
-using System.Text;
-using ServiceStack;
+﻿using System.Text;
+using System.Text.Json;
+
 
 namespace TgParse.Services
 {
     public class PlaceComparor
     {
-        
-        public static async Task<JsonDocument?> DataConverter(string message)
+        public static async Task<JsonDocument?> DataConverter(string tgMessage, string sourseUrl)
         {
-            
-            var jsonObject = new
-            {
-                message
-            };
-            Console.WriteLine(jsonObject.ToString());
-            // Сериализуем в JSON
+            string? relaxType;
+            if (sourseUrl == "rybalka_spb_lenoblasti") relaxType = "рыбалка";
+            else relaxType = "кемпинг";
+
+
+                var jsonObject = new { message = tgMessage, relax_type = relaxType };
             string json = JsonSerializer.Serialize(jsonObject);
-            //Console.WriteLine(json);
+
             using HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://ml_service:8001/");
             HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            Console.WriteLine(content.SerializeToString());
-            // Отправка POST-запроса
-            Console.WriteLine("1 ОК");
-            
-            HttpResponseMessage response = await client.PostAsync("compare_fishing_places", content);
-            Console.WriteLine("2 ОК");
-            // Чтение ответа
+            Console.WriteLine($"Отправка запроса: {jsonObject}");
+            HttpResponseMessage response = await client.PostAsync("compare_location", content);
+
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("3 ОК");
-                string responseBody = await response.Content.ReadAsStringAsync();
-
+                string responseBody = await response.Content.ReadAsStringAsync();                
                 JsonDocument doc = JsonDocument.Parse(responseBody);
                 return doc;
-
             }
             else
             {
@@ -44,7 +35,5 @@ namespace TgParse.Services
                 return null;
             }
         }
-
-        
     }
 }
