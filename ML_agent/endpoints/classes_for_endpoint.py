@@ -9,6 +9,7 @@ class MessageRequest(BaseModel):
 class Spot(BaseModel):
     name: str
     location_user: Optional[List[float]] = None  
+    url_photos: Optional[str] = None
     description: str
     coordinates: List[float]
     distance_km: Optional[float] = None  

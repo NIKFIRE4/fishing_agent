@@ -246,11 +246,13 @@ async def search_fishing_spots_for_telegram(request: TelegramSearchRequest):
             raw_coords = place.get("place_coordinates", [])
             raw_user_loc = place.get("location_user", [])
             description_full = place.get("description", "")
+            url_photos= place.get("url_photos", [])
             
             
             spot = Spot(
                 name=place.get("name_place", [None]) or "Неизвестно",
                 location_user=raw_user_loc,
+                url_photos=url_photos,
                 description=description_full,
                 coordinates=raw_coords,
                 distance_km=place.get("distance_km")
