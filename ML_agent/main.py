@@ -72,6 +72,12 @@ async def compare_location(request: CompareLocationRequest):
     Поддерживает разные типы отдыха: рыбалка, кемпинг, рыбалка + кемпинг
     Теперь также создает embedding из user_preferences для семантического поиска.
     
+    Логика сравнения:
+    1. Если названия совпадают И расстояние < 2км → существующее место (возврат)
+    2. Если названия совпадают НО расстояние >= 2км → продолжаем поиск
+    3. Если названия НЕ совпадают НО расстояние < 2км → существующее место (возврат)
+    4. Если названия НЕ совпадают И расстояние >= 2км → продолжаем поиск
+    
     Args:
         request: CompareLocationRequest с полями message и relax_type
         
@@ -98,60 +104,96 @@ async def compare_location(request: CompareLocationRequest):
         
         # Проверяем каждое место
         for place in places_by_type:
-            name = place.get("name_place", [None])[0]
+            name = place.get("name_place", [None])
             
-            # Сначала проверка по названию
-            if get_similarity(target_name, name):
-                # Если названия совпали, проверяем расстояние
-                coords = place.get("coordinates", [])
-                if not coords:
-                    try:
-                        coords = await geocode_name_to_coords(name)
-                    except ValueError:
+            # Получаем координаты существующего места
+            coords = place.get("place_coordinates", [])
+            if not coords:
+                try:
+                    coords = await geocode_name_to_coords(name)
+                except ValueError:
+                    coords = None
+            
+            # Проверяем совпадение по названию
+            name_match = get_similarity(target_name, name)
+            
+            if name_match:
+                # Названия совпадают - проверяем расстояние
+                if coords and target_coords:
+                    route = await get_route(start_coord=coords, end_coord=target_coords)
+                    distance = route.get('distance_km', float('inf'))
+                    
+                    if distance >= 2:
+                        # Названия совпадают НО расстояние >= 2км → это разные места
                         continue
                 
-                route = await get_route(start_coord=coords, end_coord=target_coords)
-                distance = route.get('distance_km', float('inf'))
+                # Названия совпадают И (расстояние < 2км ИЛИ нет координат) → существующее место
+                # Сразу возвращаем результат
+                updated_description = place.get("description", "") + " " + request.message
+                updated_short = analyzer.analyze_existing_place(updated_description, relax_type)
                 
-                # Если расстояние меньше 2 км, это то же самое место
-                if distance < 2:
-                    # Обновляем описание существующего места
-                    updated_description = place.get("description", "") + " " + request.message
-                    updated_short = analyzer.analyze_existing_place(updated_description, relax_type)
+                user_prefs = updated_short.get("user_preferences", [])
+                name_old_embedding = get_one_name_embedding(name)
+                preferences_embedding = create_semantic_embedding(user_prefs)
+                
+                response_data = {
+                    "new_place": False,
+                    "name_location": name,
+                    "name_embedding": name_old_embedding,
+                    "type_of_relax": relax_type.value,
+                    "user_preferences": user_prefs,
+                    "preferences_embedding": preferences_embedding,
+                    "place_coordinates": coords,
+                    "description": updated_description
+                }
+                
+                if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
+                    response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
+                    response_data["water_space"] = updated_short.get("water_space", [])
+                
+                if updated_short.get("wish_price"):
+                    response_data["wish_price"] = updated_short.get("wish_price")
+                
+                return JSONResponse(content=response_data)
+            
+            else:
+                # Названия НЕ совпадают - проверяем расстояние
+                if coords and target_coords:
+                    route = await get_route(start_coord=coords, end_coord=target_coords)
+                    distance = route.get('distance_km', float('inf'))
                     
-                    # Получаем user_preferences (список строк)
-                    user_prefs = updated_short.get("user_preferences", [])
-                    name_old_embedding = get_one_name_embedding(name)
-                    # Создаем embedding из списка строк для семантического поиска
-                    preferences_embedding = create_semantic_embedding(user_prefs)
-                    
-                    # Формируем ответ в зависимости от типа отдыха
-                    response_data = {
-                        "new_place": False,
-                        "name_location": name,
-                        "name_embedding": name_old_embedding,
-                        "type_of_relax": relax_type.value,
-                        "user_preferences": user_prefs,
-                        "preferences_embedding": preferences_embedding,
-                        "place_coordinates": coords,
-                        "description": updated_description
-                    }
-                    
-                    # Добавляем специфичные поля для рыбалки
-                    if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
-                        response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
-                        response_data["water_space"] = updated_short.get("water_space", [])
-                    
-                    # Добавляем цену если есть
-                    if updated_short.get("wish_price"):
-                        response_data["wish_price"] = updated_short.get("wish_price")
-                    
-                    return JSONResponse(content=response_data)
+                    if distance < 2:
+                        # Названия НЕ совпадают НО расстояние < 2км → существующее место
+                        # Сразу возвращаем результат
+                        updated_description = place.get("description", "") + " " + request.message
+                        updated_short = analyzer.analyze_existing_place(updated_description, relax_type)
+                        
+                        user_prefs = updated_short.get("user_preferences", [])
+                        name_old_embedding = get_one_name_embedding(name)
+                        preferences_embedding = create_semantic_embedding(user_prefs)
+                        
+                        response_data = {
+                            "new_place": False,
+                            "name_location": name,
+                            "name_embedding": name_old_embedding,
+                            "type_of_relax": relax_type.value,
+                            "user_preferences": user_prefs,
+                            "preferences_embedding": preferences_embedding,
+                            "place_coordinates": coords,
+                            "description": updated_description
+                        }
+                        
+                        if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
+                            response_data["caught_fishes"] = updated_short.get("caught_fishes", [])
+                            response_data["water_space"] = updated_short.get("water_space", [])
+                        
+                        if updated_short.get("wish_price"):
+                            response_data["wish_price"] = updated_short.get("wish_price")
+                        
+                        return JSONResponse(content=response_data)
 
         # Если ничего не найдено - создаём новое место
         user_prefs = short_message.get("user_preferences", [])
-        
-        # Создаем embedding из списка строк для семантического поиска
         preferences_embedding = create_semantic_embedding(user_prefs)
         
         response_data = {
@@ -165,12 +207,10 @@ async def compare_location(request: CompareLocationRequest):
             "description": request.message
         }
         
-        # Добавляем специфичные поля для рыбалки
         if relax_type in (RelaxType.FISHING, RelaxType.FISHING_AND_CAMPING):
             response_data["caught_fishes"] = short_message.get("caught_fishes", [])
             response_data["water_space"] = short_message.get("water_space", [])
         
-        # Добавляем цену если есть
         if short_message.get("wish_price"):
             response_data["wish_price"] = short_message.get("wish_price")
         
