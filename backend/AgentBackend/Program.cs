@@ -1,18 +1,16 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Builder;
 using DBShared;
-
-
-
-using System.Text;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Minio;
 using System.Diagnostics;
+using System.Text;
 
 namespace AgentBackend
 {
-
+    
 
     public class RequestLoggingMiddleware
     {
@@ -69,6 +67,7 @@ namespace AgentBackend
     }
     public class Program
     {
+        
         private static void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<ApplicationContext>();
@@ -91,6 +90,13 @@ namespace AgentBackend
         public static void Main(string[] args)
         {
             DotNetEnv.Env.Load();
+            var endpoint = "localhost:9000";
+
+            var accessKey = "admin";
+
+            var secretKey = "1lomalsteklo";
+
+            var _bucketName = "images";
             //var serviceCollection = new ServiceCollection();
             //ConfigureServices(serviceCollection);
             //var serviceProvider = serviceCollection.BuildServiceProvider();
@@ -103,7 +109,19 @@ namespace AgentBackend
             //using ApplicationContext db = new();
 
             var builder = WebApplication.CreateBuilder(args);
+            
 
+            // Add Minio using the custom endpoint and configure additional settings for default MinioClient initialization
+            builder.Services.AddMinio(configureClient =>
+            {
+                configureClient
+                    .WithEndpoint(endpoint)
+                    .WithCredentials(accessKey, secretKey)
+                    .WithRegion("us-east-1")
+                    .WithSSL(false);
+               
+            });
+           
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationContext>();
             builder.Services.AddEndpointsApiExplorer();
@@ -127,13 +145,14 @@ namespace AgentBackend
                 app.UseSwaggerUI();
             }
             //app.UseHttpLogging();
+            app.UseMiddleware<RequestLoggingMiddleware>();
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
 
 
             app.MapControllers();
-            app.UseMiddleware<RequestLoggingMiddleware>();
+            
             app.Run();
         }
     }

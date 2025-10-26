@@ -21,6 +21,7 @@
 	<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
 	<ProjectReference Include="..\DBShared\DBShared.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
+	<PackageReference Include="Minio" Version="6.0.5" />
   </ItemGroup>
 
 </Project>
