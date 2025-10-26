@@ -213,10 +213,9 @@ async def compare_places(query_user: str) -> List[Dict]:
             prefs_similarity = calculate_semantic_similarity(place_prefs_emb, user_prefs_emb)
             
             distance_km = None
-            place_coords = place.get("coordinates") or place.get("coord_location")
-            
+            place_coords = place.get("place_coordinates") 
             if not place_coords:
-                place_name = place.get("name_place", [None])[0] if isinstance(place.get("name_place"), list) else place.get("name_place")
+                place_name = place.get("name_place", [None]) if isinstance(place.get("name_place"), list) else place.get("name_place")
                 if place_name:
                     try:
                         place_coords = await geocode_name_to_coords(place_name)
@@ -259,8 +258,8 @@ async def compare_places(query_user: str) -> List[Dict]:
         
         # Добавляем location_user и distance_km
         for place in full_places:
-            place["location_user"] = user_coords  # Передаем координаты, а не название
-            place_coords = place.get("coordinates") or place.get("coord_location")
+            place["location_user"] = user_coords  
+            place_coords = place.get("place_coordinates") 
             
             distance_km = None
             if user_coords and place_coords:

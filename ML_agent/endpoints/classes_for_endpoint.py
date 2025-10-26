@@ -8,10 +8,10 @@ class MessageRequest(BaseModel):
 
 class Spot(BaseModel):
     name: str
-    location_user: List[float]
+    location_user: Optional[List[float]] = None  
     description: str
     coordinates: List[float]
-    distance_km: Optional[float] = None
+    distance_km: Optional[float] = None  
 
 class TelegramSearchResponse(BaseModel):
     success: bool

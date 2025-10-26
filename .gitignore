@@ -105,3 +105,9 @@
 /backend/DBShared/obj/Debug/net9.0/DBShared.genruntimeconfig.cache
 /backend/AgentBackend/obj/Debug/net9.0/AgentBackend.genruntimeconfig.cache
 /backend/AgentBackend/obj/Debug/net9.0/staticwebassets.build.endpoints.json
+/backend/DBShared/obj/DBShared.csproj.nuget.dgspec.json
+/backend/DBShared/obj/DBShared.csproj.nuget.g.props
+/backend/DBShared/obj/project.assets.json
+/backend/DBShared/obj/project.nuget.cache
+/backend/DBShared/obj/Debug/net9.0/DBShared.assets.cache
+/backend/DBShared/obj/Debug/net9.0/DBShared.GeneratedMSBuildEditorConfig.editorconfig
