@@ -3,25 +3,33 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace DBShared.Models
 {
     public class PlaceDto
-    {
-        [Key]
-        public int id { get; set; }
-        public List<string>? name_place { get; set; }
-        public List<double>? coordinates { get; set; }
-        public ShortDescriptionDto? short_description { get; set; }
-        public string? description { get; set; }
-    }
+    {       
 
-    public class ShortDescriptionDto
-    {
-        public List<string>? name_place { get; set; }
-        public List<double>? coordinates { get; set; }
-        public List<string>? caught_fishes { get; set; }
-        public List<string>? water_space { get; set; }
+        [JsonPropertyName("name_place")]
+        public string? NamePlace { get; set; }
+
+        [JsonPropertyName("type_of_relax")]
+        public string? RelaxType { get; set; }
+
+        [JsonPropertyName("user_preferences")]
+        public List<string>? UserPreferences { get; set; }
+
+        [JsonPropertyName("place_coordinates")]
+        public List<decimal>? PlaceCoordinates { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("caught_fishes")]
+        public List<string>? CaughtFishes { get; set; }
+
+        [JsonPropertyName("water_space")]
+        public List<string>? WaterSpace { get; set; }
     }
 }

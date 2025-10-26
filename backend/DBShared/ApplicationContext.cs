@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using DBShared.Models;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json;
 
 namespace DBShared
 {
@@ -15,6 +17,11 @@ namespace DBShared
         public DbSet<PlaceVectors> PlaceVectors { get; set; }
         public DbSet<FishingPlaceFish> FishingPlaceFish { get; set; }
         public DbSet<FishingPlaceWater> FishingPlaceWater { get; set; }
+        public DbSet<UserBot> users_bot { get; set; }
+        public DbSet<UserCroud> users {  get; set; }
+
+        public DbSet<SelectedSpot> selected_fishing_spots { get; set; }
+
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -29,6 +36,11 @@ namespace DBShared
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            var jsonSerializerOptions = new JsonSerializerOptions();
+            var listFloatConverter = new ValueConverter<List<float>?, string>(
+                v => JsonSerializer.Serialize(v, jsonSerializerOptions),
+                v => JsonSerializer.Deserialize<List<float>>(v, jsonSerializerOptions) ?? new List<float>());
+
             modelBuilder.Entity<TgMessages>()
                 .HasMany(m => m.Photos)
                 .WithOne(p => p.Messages)
@@ -104,13 +116,39 @@ namespace DBShared
 
             modelBuilder.Entity<PlaceVectors>()
                 .Property(pv => pv.NameEmbedding)
+                .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
             modelBuilder.Entity<PlaceVectors>()
                 .Property(pv => pv.PreferencesEmbedding)
+                .HasConversion(listFloatConverter)
                 .HasColumnType("jsonb");
 
-            
+            modelBuilder.Entity<UserBot>()
+                .HasMany(u => u.selected_spots)
+                .WithOne(s => s.user)
+                .HasForeignKey(s => s.user_id)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserCroud>()
+                .HasIndex(u => u.UserId)
+                .IsUnique();
+
+            modelBuilder.Entity<UserBot>()
+                .HasIndex(u => u.tg_id)
+                .IsUnique();
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.spot_name)
+                .HasMaxLength(255);
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.spot_coordinates)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<SelectedSpot>()
+                .Property(s => s.user_coordinates)
+                .HasMaxLength(100);
         }
     }
 }

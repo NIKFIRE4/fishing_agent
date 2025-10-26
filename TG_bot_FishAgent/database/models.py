@@ -14,7 +14,7 @@ class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "users_bot"
     
     id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
@@ -34,7 +34,7 @@ class SelectedFishingSpot(Base):
     __tablename__ = "selected_fishing_spots"
     
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users_bot.id"), nullable=False)
     
 
     spot_name: Mapped[str] = mapped_column(String(255), nullable=False)
