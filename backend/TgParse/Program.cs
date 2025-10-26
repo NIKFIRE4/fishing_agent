@@ -7,6 +7,7 @@ using TgParse.Services;
 using StackExchange.Redis;
 using TgParse.Data;
 using FFMpegCore;
+using TL;
 
 namespace TgParse
 {
@@ -47,6 +48,7 @@ namespace TgParse
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            builder.Services.AddSingleton<MinioUploader>();
 
             var app = builder.Build();
 

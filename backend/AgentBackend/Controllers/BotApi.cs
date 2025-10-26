@@ -3,6 +3,7 @@ using DBShared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using System.Text.Json;
 
 namespace AgentBackend.Controllers
@@ -102,6 +103,8 @@ namespace AgentBackend.Controllers
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
                     .Include(p => p.PlaceVectors)
+                    .Include(p => p.Messages)
+                        .ThenInclude(m => m.Photos)
                     .AsQueryable();
 
                 if (fishTypes.Any())
@@ -120,16 +123,54 @@ namespace AgentBackend.Controllers
                     PlaceId = p.IdPlace,
                     NamePlace = p.PlaceName,
                     RelaxType = p.PlaceType,
-                    IdVector = p.PlaceVectors.IdVector,
+                    UserPreferences = p.UserPreferences ?? new List<string>(),
                     NameEmbedding = p.PlaceVectors.NameEmbedding,
                     PreferencesEmbedding = p.PlaceVectors.PreferencesEmbedding,
-                    UserPreferences = p.UserPreferences ?? new List<string>(),
                     PlaceCoordinates = p.Latitude.HasValue && p.Longitude.HasValue
-                        ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
-                        : new List<decimal>(),
+                            ? new List<decimal> { p.Latitude.Value, p.Longitude.Value }
+                            : new List<decimal>(),
                     Description = p.PlaceDescription,
+                    CaughtFishes = p.FishingPlaceFishes
+                            .Select(fpf => fpf.FishType.FishName ?? "Неизвестно")
+                            .Where(name => !string.IsNullOrEmpty(name))
+                            .ToList() ?? new List<string>(),
+                    WaterSpace = p.FishingPlaceWaters
+                            .Select(fpw => fpw.WaterType.WaterName ?? "Неизвестно")
+                            .Where(name => !string.IsNullOrEmpty(name))
+                            .ToList() ?? new List<string>(),
+                    PhotosUrl = p.Messages
+                        .SelectMany(m => m.Photos)
+                        .Select(photo => photo.PhotoUrl)
+                        .ToList()
                 }).ToList();
 
+                if (!placeDtos.Any())
+                {
+                    return Ok(new List<PlaceDtoBot>());
+                }
+
+                foreach (var place in placeDtos)
+                {
+                    if (place.PhotosUrl != null && place.PhotosUrl.Any())
+                    {
+                        var presignedUrls = new List<string>();
+                        foreach (var photoUrl in place.PhotosUrl)
+                        {
+                            try
+                            {
+                                MinioUploader uploader = new MinioUploader();
+                                var url = await uploader.GetUrl(photoUrl);
+                                presignedUrls.Add(url);
+                                Console.WriteLine($"[DEBUG] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Presigned URL сгенерирован для {photoUrl}: {url}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Ошибка генерации URL для {photoUrl}: {ex.Message}");
+                            }
+                        }
+                        place.PhotosUrl = presignedUrls;
+                    }
+                }
                 return Ok(placeDtos);
             }
             catch (Exception ex)
@@ -162,6 +203,8 @@ namespace AgentBackend.Controllers
                     .Include(p => p.FishingPlaceWaters)
                         .ThenInclude(fpw => fpw.WaterType)
                     .Include(p => p.PlaceVectors)
+                    .Include(p => p.Messages)
+                        .ThenInclude(m => m.Photos)
                     .Select(p => new PlaceDtoBot
                     {
                         PlaceId = p.IdPlace,
@@ -181,13 +224,40 @@ namespace AgentBackend.Controllers
                         WaterSpace = p.FishingPlaceWaters
                             .Select(fpw => fpw.WaterType.WaterName ?? "Неизвестно")
                             .Where(name => !string.IsNullOrEmpty(name))
-                            .ToList() ?? new List<string>()
+                            .ToList() ?? new List<string>(),
+                        PhotosUrl = p.Messages
+                        .SelectMany(m => m.Photos)
+                        .Select(photo => photo.PhotoUrl)
+                        .ToList()
                     })
                     .ToListAsync(); 
 
                 if (!places.Any())
                 {
                     return Ok(new List<PlaceDtoBot>()); 
+                }
+
+                foreach (var place in places)
+                {
+                    if (place.PhotosUrl != null && place.PhotosUrl.Any())
+                    {
+                        var presignedUrls = new List<string>();
+                        foreach (var photoUrl in place.PhotosUrl)
+                        {
+                            try
+                            {
+                                MinioUploader uploader = new MinioUploader();
+                                var url = await uploader.GetUrl(photoUrl);
+                                presignedUrls.Add(url);
+                                Console.WriteLine($"[DEBUG] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Presigned URL сгенерирован для {photoUrl}: {url}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Ошибка генерации URL для {photoUrl}: {ex.Message}");
+                            }
+                        }
+                        place.PhotosUrl = presignedUrls;
+                    }
                 }
 
                 return Ok(places);

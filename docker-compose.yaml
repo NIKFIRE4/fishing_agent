@@ -102,6 +102,7 @@ services:
       db:
         condition: service_started
 
+
   parsing_service:
     # env_file:
     #    - ./backend/TgParse/.env
