@@ -20,5 +20,8 @@ namespace DBShared.Models
 
         [JsonPropertyName("preferences_embedding")]
         public List<float>? PreferencesEmbedding { get; set; }
+
+        [JsonPropertyName("url_photos")]
+        public List<string>? PhotosUrl { get; set; } = null;
     }
 }

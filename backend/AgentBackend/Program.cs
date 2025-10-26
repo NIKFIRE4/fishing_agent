@@ -126,7 +126,7 @@ namespace AgentBackend
             builder.Services.AddDbContext<ApplicationContext>();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddControllers();
-         
+            
             builder.Services.AddOpenApi();
             builder.Services.AddSwaggerGen();
             builder.Logging.AddFilter("YourNamespace.RequestLoggingMiddleware", LogLevel.Information);

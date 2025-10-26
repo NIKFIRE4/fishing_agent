@@ -5,11 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TgParse.Data;
+using DBShared.Models;
 using TgParse.Services;
 
 namespace TgParse.Controllers
 {
-    internal class HandParseController: ControllerBase
+    [Route("api/[controller]")]
+    [ApiController]
+    public class HandParseController: ControllerBase
     {
         private readonly MinioUploader _minioUploader;
 
@@ -27,13 +30,17 @@ namespace TgParse.Controllers
         [HttpPost]
         public async Task<IActionResult> AddMessage([FromBody] MessageInputModel input)
         {
+            if (input == null)
+            {
+                return BadRequest(new { errors = new { input = new[] { "Тело запроса не может быть пустым." } } });
+            }
             // Валидация входных данных
-            if (string.IsNullOrWhiteSpace(input.MessageText))
+            if (input.MessageText == null)
             {
                 return BadRequest("Текст сообщения не может быть пустым.");
             }
 
-            if (input.PhotoUrls == null || !input.PhotoUrls.Any())
+            if (input.PhotoUrls == null)
             {
                 return BadRequest("Список URL-ов фотографий не может быть пустым.");
             }

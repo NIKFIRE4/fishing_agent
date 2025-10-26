@@ -196,7 +196,7 @@ namespace TgParse.Services
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
-                        Console.WriteLine($"Обработано сообщение {message.MessageId}, место: {place.PlaceName} ({(placeResponse.NewPlace ? "создано" : "обновлено")})");
+                        Console.WriteLine($"!!!!!!NEW_______PLACE:{placeResponse.NewPlace}, Обработано сообщение {message.MessageId}, место: {place.PlaceName} ({(placeResponse.NewPlace ? "создано" : "обновлено")})");
                     }
                     catch (DbUpdateException ex)
                     {
