@@ -61,12 +61,12 @@ namespace TgParse
             });
 
             // Вызов кэширования при старте
-            using (var scope = app.Services.CreateScope())
-            {
-                var db = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
-                var cache = scope.ServiceProvider.GetRequiredService<CacheService>();
-                cache.CacheAllPlacesAsync(db).Wait();
-            }
+            //using (var scope = app.Services.CreateScope())
+            //{
+            //    var db = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+            //    var cache = scope.ServiceProvider.GetRequiredService<CacheService>();
+            //    cache.CacheAllPlacesAsync(db).Wait();
+            //}
 
             // Swagger и маршруты
             app.UseSwagger();
