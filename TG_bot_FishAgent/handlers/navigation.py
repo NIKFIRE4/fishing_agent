@@ -1,15 +1,28 @@
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, BufferedInputFile, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
 import logging
-
 from datetime import datetime, date
+import aiohttp
 from keyboards.inline import get_spot_navigation_keyboard
 from utils.formatters import format_spot_description
-from utils.media_handler import MediaHandler
 
 logger = logging.getLogger(__name__)
 navigation_router = Router()
+
+async def download_photo(url: str) -> bytes | None:
+    """Скачивает фото по URL"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    return await response.read()
+                else:
+                    logger.error(f"Failed to download photo: {url}, status: {response.status}")
+                    return None
+    except Exception as e:
+        logger.error(f"Error downloading photo from {url}: {e}")
+        return None
 
 async def show_spot(message_or_callback, spot: dict, current_index: int, total_spots: int,
                     user_coords: list = None, state: FSMContext = None, selected_date: date = None):
@@ -29,7 +42,6 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
         keyboard = get_spot_navigation_keyboard(current_index, total_spots, spot_id)
         
         photos = (spot.get('url_photos') or spot.get('images') or [])[:3]
-        media_items = MediaHandler.prepare_media_items(photos, description)
         
         # Получаем данные состояния
         state_data = await state.get_data() if state else {}
@@ -43,31 +55,83 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
                 pass
         
         new_message_ids = []
+        caption_limit = 1000
         
-        if media_items:
-            media_messages = await bot_instance.send_media_group(chat_id, media_items)
-            new_message_ids = [msg.message_id for msg in media_messages]
-            
-            keyboard_msg = await bot_instance.send_message(
-                chat_id, 
-                "Выберите действие:", 
-                reply_markup=keyboard
-            )
-            new_message_ids.append(keyboard_msg.message_id)
+        # Обрезаем описание
+        if len(description) > caption_limit:
+            short_description = description[:caption_limit-3] + "..."
         else:
-            fallback_msg = await bot_instance.send_message(
+            short_description = description
+        
+        if photos:
+            # Скачиваем фото
+            media_items = []
+            for i, photo_url in enumerate(photos):
+                photo_data = await download_photo(photo_url)
+                if photo_data:
+                    photo_file = BufferedInputFile(photo_data, filename=f"photo_{i}.jpg")
+                    if i == 0:
+                        media_items.append(InputMediaPhoto(media=photo_file, caption=short_description, parse_mode='HTML'))
+                    else:
+                        media_items.append(InputMediaPhoto(media=photo_file))
+            
+            if media_items:
+                try:
+                    media_messages = await bot_instance.send_media_group(chat_id, media_items)
+                    new_message_ids = [msg.message_id for msg in media_messages]
+                    
+                    # Клавиатура отдельным сообщением
+                    keyboard_msg = await bot_instance.send_message(
+                        chat_id, 
+                        "Выберите действие:", 
+                        reply_markup=keyboard
+                    )
+                    new_message_ids.append(keyboard_msg.message_id)
+                    
+                except Exception as e:
+                    logger.error(f"Error sending media group: {e}")
+                    # Fallback: только текст
+                    text_msg = await bot_instance.send_message(
+                        chat_id,
+                        short_description,
+                        parse_mode='HTML',
+                        reply_markup=keyboard
+                    )
+                    new_message_ids.append(text_msg.message_id)
+            else:
+                # Не удалось скачать ни одно фото
+                text_msg = await bot_instance.send_message(
+                    chat_id,
+                    short_description,
+                    parse_mode='HTML',
+                    reply_markup=keyboard
+                )
+                new_message_ids.append(text_msg.message_id)
+        else:
+            # Нет фото - отправляем только текст
+            text_msg = await bot_instance.send_message(
                 chat_id,
-                f"⚠️ Ошибка загрузки фото. Показано текстовое описание:\n\n{description}",
+                short_description,
                 parse_mode='HTML',
                 reply_markup=keyboard
             )
-            new_message_ids.append(fallback_msg.message_id)
+            new_message_ids.append(text_msg.message_id)
         
         if state:
             await state.update_data(last_message_ids=new_message_ids)
     
     except Exception as e:
         logger.error(f"Error in show_spot: {str(e)}")
+        try:
+            error_msg = await bot_instance.send_message(
+                chat_id,
+                "⚠️ Произошла ошибка при отображении места",
+                reply_markup=keyboard if 'keyboard' in locals() else None
+            )
+            if state:
+                await state.update_data(last_message_ids=[error_msg.message_id])
+        except Exception as critical_error:
+            logger.error(f"Critical error in show_spot: {critical_error}")
 
 @navigation_router.callback_query(F.data.startswith("spot_nav:"))
 async def handle_spot_navigation(callback: CallbackQuery, state: FSMContext):
