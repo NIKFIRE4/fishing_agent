@@ -72,13 +72,14 @@ namespace TgParse.Services
 
                     try
                     {
+                        string? normalizedPlaceName = placeResponse.NameLocation?.Trim().ToLowerInvariant();
                         // Проверяем существование места
                         Places? place = null;
                         if (!placeResponse.NewPlace)
                         {
                             place = await _context.Places
                                 .Include(p => p.PlaceVectors)
-                                .FirstOrDefaultAsync(p => p.PlaceName == placeResponse.NameLocation);
+                                .FirstOrDefaultAsync(p => p.PlaceName != null && p.PlaceName.Trim().ToLowerInvariant() == normalizedPlaceName);
                         }
 
                         // Если место не найдено, создаем новое
