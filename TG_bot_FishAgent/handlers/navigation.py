@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 import logging
 from datetime import datetime, date
 import aiohttp
+import random
 from keyboards.inline import get_spot_navigation_keyboard
 from utils.formatters import format_spot_description
 
@@ -41,8 +42,12 @@ async def show_spot(message_or_callback, spot: dict, current_index: int, total_s
         spot_id = spot.get('id', str(current_index))
         keyboard = get_spot_navigation_keyboard(current_index, total_spots, spot_id)
         
-        photos = (spot.get('url_photos') or spot.get('images') or [])[:3]
+        all_photos = (spot.get('url_photos') or spot.get('images') or [])[:5]
         
+        if len(all_photos) > 5:
+            photos = random.sample(all_photos, 5)
+        else:
+            photos = all_photos
         # Получаем данные состояния
         state_data = await state.get_data() if state else {}
         last_message_ids = state_data.get('last_message_ids', [])
